@@ -1,0 +1,29 @@
+{
+  "name": "@pp/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/index.ts --target bun --outdir dist --external pg && cp src/db/schema.sql dist/schema.sql",
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "db:deploy": "bun src/db/migrate.ts",
+    "db:push": "bun src/db/migrate.ts",
+    "schema:check": "bun test test/schema.test.ts"
+  },
+  "dependencies": {
+    "@pp/contracts": "workspace:*",
+    "elysia": "^1.4.29",
+    "jose": "^6.2.8",
+    "nanoid": "^6.0.1",
+    "parse5": "^8.0.0",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@tool/tsconfig": "workspace:*",
+    "@types/bun": "^1.3.4",
+    "@types/pg": "^8.21.0",
+    "typescript": "catalog:"
+  }
+}
