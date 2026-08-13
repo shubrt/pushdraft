@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>pp Implementierungsplan</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #000;
+        --fg: #fff;
+        --muted: #a3a3a3;
+        --dim: #737373;
+        --line: #292929;
+        --accent: #7aa2ff;
+        --good: #7ee2a8;
+        --warn: #f4c76b;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--bg);
+        color: var(--fg);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        line-height: 1.5;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+      }
+
+      main {
+        width: min(1120px, calc(100% - 40px));
+        margin: 0 auto;
+        padding: 44px 0 80px;
+      }
+
+      header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 24px;
+        align-items: end;
+        padding-bottom: 24px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        margin-bottom: 6px;
+        font-size: clamp(1.8rem, 4vw, 2.5rem);
+        line-height: 1.1;
+        letter-spacing: -0.035em;
+      }
+
+      h2 {
+        margin-bottom: 18px;
+        font-size: 1.2rem;
+        letter-spacing: -0.015em;
+      }
+
+      h3 {
+        margin-bottom: 6px;
+        font-size: 1rem;
+      }
+
+      p {
+        margin-bottom: 12px;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      code {
+        color: #d7e2ff;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.9em;
+      }
+
+      .eyebrow,
+      .meta,
+      .secondary {
+        color: var(--muted);
+      }
+
+      .eyebrow {
+        margin-bottom: 8px;
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .subtitle {
+        max-width: 720px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 1rem;
+      }
+
+      .status {
+        color: var(--good);
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.82rem;
+        white-space: nowrap;
+      }
+
+      section {
+        padding: 30px 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        border-top: 1px solid var(--line);
+        border-left: 1px solid var(--line);
+      }
+
+      .summary > div {
+        min-height: 112px;
+        padding: 16px;
+        border-right: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .summary strong {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 0.93rem;
+      }
+
+      .summary span {
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .columns {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 32px;
+      }
+
+      ul,
+      ol {
+        margin: 0;
+        padding-left: 1.25rem;
+      }
+
+      li + li {
+        margin-top: 7px;
+      }
+
+      .plain-list {
+        padding: 0;
+        list-style: none;
+      }
+
+      .plain-list li {
+        padding: 10px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .plain-list li:last-child {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .decision {
+        color: var(--good);
+      }
+
+      .deviation {
+        color: var(--warn);
+      }
+
+      .flow {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) 40px minmax(0, 1.2fr) 40px minmax(0, 1fr);
+        align-items: stretch;
+        margin-top: 22px;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .flow-node {
+        padding: 18px 8px;
+      }
+
+      .flow-node strong {
+        display: block;
+        margin-bottom: 7px;
+      }
+
+      .flow-node span {
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .flow-arrow {
+        display: grid;
+        place-items: center;
+        color: var(--dim);
+        border-left: 1px solid var(--line);
+        border-right: 1px solid var(--line);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.9rem;
+      }
+
+      th,
+      td {
+        padding: 12px 10px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      td:first-child,
+      th:first-child {
+        padding-left: 0;
+      }
+
+      td:last-child,
+      th:last-child {
+        padding-right: 0;
+      }
+
+      .route {
+        white-space: nowrap;
+      }
+
+      .phases {
+        counter-reset: phase;
+        list-style: none;
+        padding: 0;
+      }
+
+      .phases > li {
+        counter-increment: phase;
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr) minmax(220px, 0.7fr);
+        gap: 18px;
+        padding: 20px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .phases > li:last-child {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .phases > li::before {
+        content: counter(phase, decimal-leading-zero);
+        color: var(--accent);
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+        font-size: 0.82rem;
+      }
+
+      .phase-output {
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+
+      .checks {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 32px;
+        padding: 0;
+        list-style: none;
+      }
+
+      .checks li {
+        position: relative;
+        padding: 11px 0 11px 24px;
+        border-top: 1px solid var(--line);
+      }
+
+      .checks li::before {
+        content: "□";
+        position: absolute;
+        left: 0;
+        color: var(--muted);
+      }
+
+      .note {
+        padding-left: 14px;
+        border-left: 2px solid var(--warn);
+        color: var(--muted);
+      }
+
+      footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        padding-top: 24px;
+        color: var(--dim);
+        font-size: 0.8rem;
+      }
+
+      @media (max-width: 820px) {
+        header,
+        .columns {
+          grid-template-columns: 1fr;
+        }
+
+        .summary {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .flow {
+          grid-template-columns: 1fr;
+        }
+
+        .flow-arrow {
+          min-height: 34px;
+          border: 0;
+          border-top: 1px solid var(--line);
+          border-bottom: 1px solid var(--line);
+        }
+
+        .flow-arrow::before {
+          content: "↓";
+        }
+
+        .flow-arrow span {
+          display: none;
+        }
+
+        .phases > li {
+          grid-template-columns: 36px minmax(0, 1fr);
+        }
+
+        .phase-output {
+          grid-column: 2;
+        }
+
+        .checks {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 560px) {
+        main {
+          width: min(100% - 28px, 1120px);
+          padding-top: 28px;
+        }
+
+        .summary {
+          grid-template-columns: 1fr;
+        }
+
+        .table-wrap {
+          overflow-x: auto;
+        }
+
+        table {
+          min-width: 680px;
+        }
+
+        footer {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">pp · Implementierungsplan</p>
+          <h1>Privates Postplan</h1>
+          <p class="subtitle">
+            Postplan so nah wie möglich am Original nachbauen. Der einzige große Unterschied ist
+            Absicht: Kein Dokument ist ohne Anmeldung oder API-Key erreichbar.
+          </p>
+        </div>
+        <div class="status">Produktentscheidungen bestätigt</div>
+      </header>
+
+      <section aria-labelledby="fixed">
+        <h2 id="fixed">Fest entschieden</h2>
+        <div class="summary">
+          <div>
+            <strong>Original als Basis</strong>
+            <span>Postplan 0.0.4 unter MIT bleibt Verhaltensreferenz.</span>
+          </div>
+          <div>
+            <strong>Getrennte Nutzer</strong>
+            <span>Jeder Shoo-Nutzer sieht ausschließlich die eigenen Drafts.</span>
+          </div>
+          <div>
+            <strong>Ein Agenten-Key</strong>
+            <span>Bearer-Auth gilt für Lesen, Schreiben und Auflisten.</span>
+          </div>
+          <div>
+            <strong>Dateien getrennt</strong>
+            <span>Versionen verweisen auf unveränderliche Dateien. V1 speichert sie in PostgreSQL.</span>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="scope">
+        <h2 id="scope">Ziel und Grenze von V1</h2>
+        <div class="columns">
+          <div>
+            <h3>V1 liefert</h3>
+            <ul class="plain-list">
+              <li>Shoo-Login und 30 Tage gültige Browser-Session</li>
+              <li>Private Drafts mit unveränderlichen Versionen</li>
+              <li>Dashboard, Detailansicht und API-Key-Verwaltung</li>
+              <li>CLI mit Upload, Update, List, Login und Whoami</li>
+              <li>Automatische Gruppierung über das lokale Git-Remote</li>
+              <li>Authentifizierter HTML-Abruf für Menschen und Agenten</li>
+              <li>Ein eigener Browser-Origin je Draft über eine Wildcard-Subdomain</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Bewusst nicht in V1</h3>
+            <ul class="plain-list">
+              <li>Teilen von Drafts mit anderen Accounts</li>
+              <li>GitHub-App, GitHub-OAuth oder Repository-Synchronisation</li>
+              <li>Import bestehender Postplan-Drafts</li>
+              <li>PDFs, Anhänge oder mehrere Dateien pro Version</li>
+              <li>Aktive R2-Nutzung oder ein persistentes App-Dateisystem</li>
+              <li>Teams, Rollen, Abrechnung oder öffentliche Freigabelinks</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="architecture">
+        <h2 id="architecture">Architektur</h2>
+        <p>
+          Eine TypeScript-Webanwendung übernimmt UI, API, Auth und Dokumentauslieferung. Eine
+          getrennte CLI spricht denselben API-Vertrag. PostgreSQL speichert alle Metadaten und in
+          V1 auch die Dateibytes. Eine kleine Speichergrenze erlaubt später R2, ohne das
+          Versionsmodell zu ändern.
+        </p>
+        <div class="flow" aria-label="Anfragefluss">
+          <div class="flow-node">
+            <strong>Mensch oder Agent</strong>
+            <span>Shoo-Session im Browser oder Bearer-Key im HTTP-Header</span>
+          </div>
+          <div class="flow-arrow"><span>→</span></div>
+          <div class="flow-node">
+            <strong>Zentrale Zugriffskontrolle</strong>
+            <span>Identität prüfen, Account bestimmen, Besitz des Drafts prüfen</span>
+          </div>
+          <div class="flow-arrow"><span>→</span></div>
+          <div class="flow-node">
+            <strong>PostgreSQL und Dateispeicher</strong>
+            <span>Metadaten bleiben in PostgreSQL. Dateibytes liegen dort zunächst ebenfalls.</span>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top: 26px">
+          <table>
+            <thead>
+              <tr>
+                <th>Paket</th>
+                <th>Aufgabe</th>
+                <th>Leitlinie</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>apps/api</code></td>
+                <td>TanStack-UI, Elysia-Routen, Shoo, Sessions, HTML-Auslieferung</td>
+                <td>Ein deploybarer Prozess, keine zweite Backend-Anwendung</td>
+              </tr>
+              <tr>
+                <td><code>apps/cli</code></td>
+                <td>Lokaler Upload, Auth, Git-Erkennung und Draft-Zuordnung</td>
+                <td>Originale Befehle und Ausgaben soweit sinnvoll beibehalten</td>
+              </tr>
+              <tr>
+                <td><code>libs/contracts</code></td>
+                <td>Geteilte Request- und Response-Schemas</td>
+                <td>Keine handgeschriebenen, auseinanderlaufenden API-Typen</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="data">
+        <h2 id="data">Datenmodell</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tabelle</th>
+                <th>Wesentliche Daten</th>
+                <th>Regel</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>accounts</code></td>
+                <td>Name und Zeitstempel</td>
+                <td>Ein Account je Shoo-Identität</td>
+              </tr>
+              <tr>
+                <td><code>identities</code></td>
+                <td>Provider, stabiler Subject-Wert, E-Mail, Name, Bild</td>
+                <td><code>provider + subject</code> ist eindeutig</td>
+              </tr>
+              <tr>
+                <td><code>api_keys</code></td>
+                <td>Account, Name, Hash, erstellt, zuletzt genutzt, widerrufen</td>
+                <td>Der Klartext wird genau einmal angezeigt</td>
+              </tr>
+              <tr>
+                <td><code>drafts</code></td>
+                <td>Account, Titel, Beschreibung, Repo, aktuelle Version, Status</td>
+                <td>Jede Abfrage wird über <code>account_id</code> begrenzt</td>
+              </tr>
+              <tr>
+                <td><code>draft_versions</code></td>
+                <td>Versionsnummer, Datei-Verweis, Git- und CI-Metadaten</td>
+                <td>Version und Datei ändern sich nach dem Upload nicht mehr</td>
+              </tr>
+              <tr>
+                <td><code>files</code></td>
+                <td>Typ, Name, Größe, Hash, Speicherart, Bytes oder Object-Key</td>
+                <td>Genau ein Speicherort je unveränderlicher Datei</td>
+              </tr>
+              <tr>
+                <td><code>upload_events</code></td>
+                <td>Draft, Version, Key, Request-ID, IP und Ereignistyp</td>
+                <td>Audit-Daten, niemals Teil der Autorisierung</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="secondary" style="margin-top: 14px">
+          <code>draft_versions.file_id</code> verweist auf <code>files.id</code>. V1 speichert HTML
+          als <code>BYTEA</code> in <code>files.inline_bytes</code>. Bei einer späteren R2-Migration
+          wird stattdessen <code>files.object_key</code> gesetzt. Listen und Dashboard-Abfragen laden
+          keine Dateibytes.
+        </p>
+      </section>
+
+      <section aria-labelledby="access">
+        <h2 id="access">Zugriffsmatrix</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Route</th>
+                <th>Erlaubte Auth</th>
+                <th>Ohne Auth</th>
+                <th>Fremder Account</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="route"><code>/drafts</code></td>
+                <td>Shoo-Session</td>
+                <td>Zum Login</td>
+                <td>Nur eigene Daten sichtbar</td>
+              </tr>
+              <tr>
+                <td class="route"><code>/drafts/:id</code></td>
+                <td>Shoo-Session</td>
+                <td>Zum Login</td>
+                <td><code>404</code></td>
+              </tr>
+              <tr>
+                <td class="route"><code>/cli/auth</code></td>
+                <td>Shoo-Session</td>
+                <td>Zum Login</td>
+                <td>Nicht anwendbar</td>
+              </tr>
+              <tr>
+                <td class="route"><code>/api/me</code>, <code>/api/drafts</code></td>
+                <td>Bearer-Key</td>
+                <td><code>401</code> JSON</td>
+                <td>Nur eigene Daten sichtbar</td>
+              </tr>
+              <tr>
+                <td class="route"><code>/api/uploads</code></td>
+                <td>Bearer-Key</td>
+                <td><code>401</code> JSON</td>
+                <td><code>404</code> bei fremder Draft-ID</td>
+              </tr>
+              <tr>
+                <td class="route"><code>/:id</code></td>
+                <td>Shoo-Session</td>
+                <td>Zum Login</td>
+                <td><code>404</code></td>
+              </tr>
+              <tr>
+                <td class="route"><code>&lt;id&gt;.&lt;domain&gt;/</code></td>
+                <td>Draft-Cookie oder Bearer-Key</td>
+                <td>Browser über den Haupt-Origin anmelden</td>
+                <td><code>404</code></td>
+              </tr>
+              <tr>
+                <td class="route"><code>&lt;id&gt;.&lt;domain&gt;/raw</code></td>
+                <td>Draft-Cookie oder Bearer-Key</td>
+                <td><code>401</code></td>
+                <td><code>404</code></td>
+              </tr>
+              <tr>
+                <td class="route"><code>&lt;id&gt;.&lt;domain&gt;/v/:n/raw</code></td>
+                <td>Draft-Cookie oder Bearer-Key</td>
+                <td><code>401</code></td>
+                <td><code>404</code></td>
+              </tr>
+              <tr>
+                <td class="route"><code>/</code>, <code>/healthz</code>, <code>/auth/*</code></td>
+                <td>Öffentlich</td>
+                <td>Erreichbar</td>
+                <td>Nicht anwendbar</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note" style="margin-top: 18px">
+          Eine bekannte Draft-ID verrät nichts über fremde Inhalte. pp antwortet für nicht
+          berechtigte Accounts mit <code>404</code>. Fehlende oder ungültige Auth erhält
+          <code>401</code>, sofern kein Browser-Login sinnvoll ist.
+        </p>
+        <p class="secondary" style="margin-top: 14px">
+          <code>/:id</code> rendert keinen Draft auf dem Haupt-Origin. Die Route prüft die
+          Shoo-Session und leitet mit einem kurzlebigen Zugriffsticket zur Draft-Subdomain. Dort
+          entsteht ein host-only Cookie für genau diesen Draft. Agenten senden ihren Bearer-Key
+          direkt an die Subdomain.
+        </p>
+      </section>
+
+      <section aria-labelledby="compatibility">
+        <h2 id="compatibility">Nähe zum Original</h2>
+        <div class="columns">
+          <div>
+            <h3 class="decision">Bleibt gleich</h3>
+            <ul>
+              <li>CLI-Befehle <code>auth</code>, <code>whoami</code>, <code>upload</code> und <code>list</code></li>
+              <li><code>--draft</code>, <code>--new</code>, <code>--description</code> und <code>--api-url</code></li>
+              <li>Lokale Zuordnung einer Datei zu ihrer stabilen Draft-ID</li>
+              <li>Git-Remote, Branch, Commit, Subject und Dirty-Status als Metadaten</li>
+              <li>Aktuelle URL, Raw-URL und unveränderliche Versions-URLs</li>
+              <li>Ein eigener Browser-Origin für jeden Draft</li>
+              <li>HTML-Prüfung und restriktive Content-Security-Policy</li>
+              <li>Response-Felder und <code>X-Postplan-Draft-*</code>-Header</li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="deviation">Ändert sich absichtlich</h3>
+            <ul>
+              <li>Keine anonymen Uploads</li>
+              <li>Keine öffentlichen Draft- oder Versions-URLs</li>
+              <li>API-Keys dürfen Dokumente lesen und schreiben</li>
+              <li>Versionen verweisen auf getrennte, austauschbar gespeicherte Dateien</li>
+              <li>V1 speichert Dateibytes in PostgreSQL statt in S3</li>
+              <li>CLI-Zustand wird von postplan.dev getrennt gespeichert</li>
+              <li>Browser-Auth auf Draft-Subdomains nutzt kurzlebige Zugriffstickets</li>
+            </ul>
+          </div>
+        </div>
+        <p class="secondary" style="margin-top: 18px">
+          Draft-Inhalte laufen über Wildcard-Subdomains. Das trennt hochgeladenes HTML vom
+          Dashboard und jeden Draft von allen anderen Drafts. Das Haupt-Session-Cookie bleibt
+          host-only und wird nie an Draft-Subdomains gesendet. Ein gemeinsames Domain-Cookie ist
+          ausdrücklich ausgeschlossen.
+        </p>
+      </section>
+
+      <section aria-labelledby="delivery">
+        <h2 id="delivery">Umsetzung in sechs Phasen</h2>
+        <ol class="phases">
+          <li>
+            <div>
+              <h3>Vertrag und Fundament</h3>
+              <p class="secondary">
+                Originalcode mit MIT-Hinweis als Referenz sichern. Pakete, geteilte Schemas,
+                Datenbankmodell und lokale Entwicklungsumgebung anlegen.
+              </p>
+            </div>
+            <div class="phase-output">
+              Ergebnis: App startet lokal, Migration läuft, Contract-Tests beschreiben das
+              originale Verhalten.
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Identität und Schlüssel</h3>
+              <p class="secondary">
+                Shoo-Login, Callback, sichere Session-Cookies, Draft-Zugriffstickets,
+                API-Key-Erzeugung, Hashing, Last-used-Zeit und Widerruf umsetzen.
+              </p>
+            </div>
+            <div class="phase-output">
+              Ergebnis: Zwei Accounts bleiben getrennt. Ein widerrufener Key verliert sofort den
+              Zugriff.
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Drafts und Versionen</h3>
+              <p class="secondary">
+                Upload-Policy, transaktionale Versionierung, getrennte Dateispeicherung, aktuelle
+                Version, alte Versionen und Besitzerprüfung bauen.
+              </p>
+            </div>
+            <div class="phase-output">
+              Ergebnis: Derselbe Draft erhält v2, v1 bleibt unverändert und kein Request umgeht
+              die Zugriffskontrolle.
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>CLI-Parität</h3>
+              <p class="secondary">
+                Originale Befehle übernehmen, Git-Metadaten sammeln und den lokalen Zustand sauber
+                von postplan.dev trennen.
+              </p>
+            </div>
+            <div class="phase-output">
+              Ergebnis: Login, Upload, Update, New, List und Whoami laufen gegen die lokale App.
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>UI-Auswahl und Weboberfläche</h3>
+              <p class="secondary">
+                Vor echten Komponenten drei statische, dunkle Mocks veröffentlichen. Nach Auswahl
+                Dashboard, Detailansicht und CLI-Key-Seite umsetzen.
+              </p>
+            </div>
+            <div class="phase-output">
+              Ergebnis: Informationsstruktur bleibt nah am Original. Die Oberfläche erfüllt die
+              festgelegte schwarze pp-Gestaltung.
+            </div>
+          </li>
+          <li>
+            <div>
+              <h3>Härtung und Deployment-Vorbereitung</h3>
+              <p class="secondary">
+                Rate Limits, CSP, Cache-Header, Wildcard-Domain, Logging ohne Inhalte,
+                Backup-Anforderung und hostingneutrale Konfiguration prüfen.
+              </p>
+            </div>
+            <div class="phase-output">
+              Ergebnis: Verifizierter Preview-Build für Railway oder Vercel. Kein
+              Produktionszugriff ohne separate Freigabe.
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="done">
+        <h2 id="done">Abnahmekriterien</h2>
+        <ul class="checks">
+          <li>Ein unangemeldeter Browser sieht keinen Draft-Inhalt.</li>
+          <li>Ein Agent ohne Bearer-Key erhält für Raw-HTML <code>401</code>.</li>
+          <li>Account A kann einen bekannten Draft von Account B nicht lesen.</li>
+          <li>Jeder Draft läuft unter einem eigenen Browser-Origin.</li>
+          <li>Das Haupt-Session-Cookie wird nicht an Draft-Subdomains gesendet.</li>
+          <li>Der Browser-Handshake endet auf der richtigen Draft-Subdomain.</li>
+          <li>Ein gültiger Key kann auflisten, lesen und hochladen.</li>
+          <li>Ein widerrufener Key funktioniert nicht mehr.</li>
+          <li>Erneuter Upload derselben Datei erzeugt die nächste Version.</li>
+          <li><code>--new</code> erzeugt einen neuen Draft.</li>
+          <li>Alte Versionen bleiben unverändert und adressierbar.</li>
+          <li>Dashboard und CLI gruppieren nach erkanntem Git-Repository.</li>
+          <li>Raw-Antwort enthält exakt die gespeicherten HTML-Bytes.</li>
+          <li>Versionen und Dateibytes liegen in getrennten Tabellen.</li>
+          <li>Listenabfragen laden keine Dateibytes mit.</li>
+          <li>Logs enthalten weder HTML noch Session- oder API-Key-Klartext.</li>
+          <li>Die App benötigt kein dauerhaftes lokales Dateisystem.</li>
+          <li>Der komplette lokale QA-Lauf ist grün.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="next">
+        <h2 id="next">Nächster Schritt</h2>
+        <p>
+          Nach Freigabe dieses Plans beginnt Phase 1. Die erste Änderung beschränkt sich auf
+          Paketstruktur, Datenbankschema und Contract-Tests. Es gibt bis zur späteren, ausdrücklichen
+          Freigabe weder ein Produktionsdeployment noch einen Zugriff auf bestehende Postplan-Daten.
+        </p>
+      </section>
+
+      <footer>
+        <span>Plan v2 · 13. August 2026</span>
+        <span>pp · privates HTML-Publishing für Menschen und Agenten</span>
+      </footer>
+    </main>
+  </body>
+</html>

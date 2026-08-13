@@ -1,39 +1,42 @@
 # pp
 
-Monorepo skeleton. `apps/` and `libs/` are empty and waiting for packages.
+Private, versioned HTML draft publishing for people and agents.
 
-## Layout
+## Packages
 
-```
-apps/              application packages (empty)
-libs/              shared library packages (empty)
-tools/typescript/  shared tsconfig presets (@tool/tsconfig)
-docs/              project docs (empty)
-```
+- `apps/api`: Elysia API, Shoo sign-in, PostgreSQL persistence and draft delivery
+- `apps/cli`: `pp` CLI for authentication, upload, update, list and whoami
+- `libs/contracts`: shared runtime-validated API contracts
 
-## Prerequisites
+## Local setup
 
-- Node >= 22
-- pnpm >= 11
-- Bun >= 1.3.10
-
-## Setup
+Requirements: Node 22+, pnpm 11+, Bun 1.3.10+ and Docker.
 
 ```bash
-pnpm install
+corepack pnpm install
 cp .env.example .env
+docker compose up -d postgres
+corepack pnpm db:deploy
+corepack pnpm --filter @pp/api dev
 ```
 
-## Scripts
+The apex runs at `http://localhost:3003`. Drafts use
+`http://<draft-id>.localhost:3003`; local DNS support for wildcard localhost names
+depends on the browser and operating system.
 
-| Script           | Purpose                                    |
-| ---------------- | ------------------------------------------ |
-| `pnpm dev`       | run every package's `dev` in parallel      |
-| `pnpm build`     | run every package's `build`                |
-| `pnpm typecheck` | run every package's `typecheck`            |
-| `pnpm check`     | lint and format via vite-plus              |
-| `pnpm fix`       | lint and format with autofix               |
-| `pnpm qa`        | check, sherif, typecheck, schema check     |
+Build the CLI with:
 
-Workspace packages are picked up from `apps/*`, `libs/*`, and `tools/*`. Name new
-ones `@pp/<name>` so the filters in `package.json` and `railway.json` resolve.
+```bash
+corepack pnpm --filter @pp/cli build
+node apps/cli/dist/cli.js auth login --api-url http://localhost:3003
+```
+
+## Checks
+
+```bash
+corepack pnpm qa
+```
+
+The API keeps every browser page and draft private. Browser access uses a Shoo
+session plus a one-time subdomain handshake. Agents use a Bearer API key for
+listing, uploading and fetching draft HTML.
