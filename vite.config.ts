@@ -13,6 +13,7 @@ export default defineConfig({
       "**/.gemini/**",
       "**/.cursor/**",
       "**/*.gen.ts",
+      "docs/private-postplan-plan.html",
     ],
     options: { typeAware: true, typeCheck: true },
   },
@@ -29,6 +30,7 @@ export default defineConfig({
       "**/.gemini/**",
       "**/.cursor/**",
       "**/*.gen.ts",
+      "docs/private-postplan-plan.html",
     ],
   },
 

@@ -1,0 +1,1609 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>pp · Variante C · Layoutstudien</title>
+    <!--
+      Annahmen für diese Iteration:
+      - Variante C ist gesetzt. Farbe, Typografie und Agentenbezug bleiben erhalten.
+      - Geprüft wird nur die Informationsarchitektur der Draft-Übersicht.
+      - Das Screenshot-Feedback gilt in allen drei Entwürfen.
+      - Echte Produktkomponenten werden erst nach der Auswahl geändert.
+    -->
+    <style>
+      :root {
+        color-scheme: dark;
+        --black: #000;
+        --ink: #f4f4ef;
+        --muted: #91918a;
+        --faint: #60605a;
+        --line: #292926;
+        --line-strong: #44443e;
+        --acid: #dfff00;
+        --serif: Georgia, "Times New Roman", serif;
+        --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--black);
+        scroll-behavior: smooth;
+      }
+
+      body {
+        min-width: 320px;
+        margin: 0;
+        overflow-x: hidden;
+        background: var(--black);
+        color: var(--ink);
+        font: 15px/1.55 var(--mono);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      a {
+        color: inherit;
+      }
+
+      a:focus-visible {
+        outline: 1px solid var(--acid);
+        outline-offset: 4px;
+      }
+
+      .review {
+        width: min(1500px, 100%);
+        margin: 0 auto;
+        padding: 42px clamp(18px, 4vw, 62px) 90px;
+      }
+
+      .review-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 0.72fr);
+        gap: 48px;
+        align-items: end;
+        padding-bottom: 28px;
+        border-bottom: 1px solid var(--line-strong);
+      }
+
+      .eyebrow,
+      .review-copy,
+      .feedback-list,
+      .variant-meta,
+      .appbar,
+      .mono,
+      .group-no,
+      .group-count,
+      .row-ref,
+      .row-version,
+      .row-time,
+      .small-label,
+      .status-grid,
+      .directory,
+      .table-head,
+      .command-line,
+      .index-footer {
+        font-family: var(--mono);
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--acid);
+        font-size: 11px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .review h1 {
+        max-width: 880px;
+        margin: 0;
+        font: 400 clamp(38px, 5vw, 68px) / 0.98 var(--serif);
+        letter-spacing: -0.055em;
+        text-wrap: balance;
+      }
+
+      .review-copy {
+        margin: 0 0 18px;
+        color: #b1b1aa;
+        font-size: 13px;
+        text-wrap: pretty;
+      }
+
+      .feedback-list {
+        display: grid;
+        grid-template-columns: repeat(3, auto);
+        gap: 0;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .feedback-list li {
+        padding: 8px 12px;
+        border: 1px solid var(--line-strong);
+        color: #c8c8c1;
+        font-size: 10px;
+        white-space: nowrap;
+      }
+
+      .feedback-list li + li {
+        border-left: 0;
+      }
+
+      .jump-nav {
+        display: flex;
+        flex-wrap: wrap;
+        margin-top: 24px;
+      }
+
+      .jump-nav a {
+        min-width: 145px;
+        padding: 11px 14px;
+        border: 1px solid var(--line);
+        color: #c4c4bd;
+        font-size: 11px;
+        text-decoration: none;
+      }
+
+      .jump-nav a + a {
+        border-left: 0;
+      }
+
+      .jump-nav a:hover {
+        background: var(--acid);
+        color: var(--black);
+      }
+
+      .variant {
+        padding: 62px 0 78px;
+        border-bottom: 1px solid var(--line-strong);
+      }
+
+      .variant-head {
+        display: grid;
+        grid-template-columns: 82px minmax(0, 0.9fr) minmax(280px, 1.1fr);
+        gap: 26px;
+        align-items: start;
+        margin-bottom: 24px;
+      }
+
+      .variant-id {
+        color: var(--acid);
+        font: 400 54px/0.85 var(--serif);
+        letter-spacing: -0.07em;
+      }
+
+      .variant h2 {
+        margin: 0 0 6px;
+        font: 400 clamp(28px, 3vw, 44px) / 1 var(--serif);
+        letter-spacing: -0.045em;
+      }
+
+      .variant-meta {
+        margin: 0;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .variant-copy {
+        max-width: 670px;
+        margin: 1px 0 0;
+        color: #b4b4ad;
+        font-size: 14px;
+        overflow-wrap: anywhere;
+        text-wrap: pretty;
+      }
+
+      .mock {
+        overflow: hidden;
+        min-height: 670px;
+        border: 1px solid var(--line-strong);
+        background: var(--black);
+        color: var(--ink);
+      }
+
+      .appbar {
+        display: flex;
+        align-items: stretch;
+        min-height: 62px;
+        border-bottom: 1px solid var(--line-strong);
+        font-size: 10px;
+      }
+
+      .logo {
+        display: inline-flex;
+        align-items: center;
+        flex: 0 0 auto;
+        padding: 0 25px;
+        color: var(--ink);
+        font-size: 23px;
+        font-weight: 800;
+        letter-spacing: -0.08em;
+        text-decoration: none;
+      }
+
+      .logo span {
+        color: var(--acid);
+      }
+
+      .primary-nav,
+      .account-nav {
+        display: flex;
+        align-items: stretch;
+      }
+
+      .primary-nav a,
+      .account-nav a,
+      .account-name {
+        display: flex;
+        align-items: center;
+        min-height: 61px;
+        color: var(--muted);
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .primary-nav a {
+        position: relative;
+        padding: 0 18px;
+      }
+
+      .primary-nav a[aria-current="page"] {
+        color: var(--acid);
+      }
+
+      .primary-nav a[aria-current="page"]::after {
+        position: absolute;
+        right: 18px;
+        bottom: -1px;
+        left: 18px;
+        height: 1px;
+        background: var(--acid);
+        content: "";
+      }
+
+      .account-nav {
+        gap: 22px;
+        margin-left: auto;
+        padding: 0 24px;
+      }
+
+      .account-name {
+        color: #bdbdb6;
+      }
+
+      .account-nav a {
+        color: var(--acid);
+        text-decoration: underline;
+        text-underline-offset: 4px;
+      }
+
+      .small-label {
+        display: block;
+        color: var(--muted);
+        font-size: 9px;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+      }
+
+      .title-serif {
+        font-family: var(--serif);
+        font-weight: 400;
+        letter-spacing: -0.055em;
+      }
+
+      .acid {
+        color: var(--acid);
+      }
+
+      /* C1: editorial ledger */
+      .c1-mast {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(310px, 0.85fr);
+        min-height: 180px;
+        border-bottom: 1px solid var(--line-strong);
+      }
+
+      .c1-title,
+      .c1-command {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        padding: 28px 34px;
+      }
+
+      .c1-title {
+        border-right: 1px solid var(--line);
+      }
+
+      .c1-title p,
+      .c1-title h3,
+      .c1-command p {
+        margin: 0;
+      }
+
+      .c1-title h3 {
+        margin-top: 8px;
+        font-size: clamp(48px, 6vw, 78px);
+        line-height: 0.84;
+      }
+
+      .c1-command p:first-child {
+        max-width: 430px;
+        color: #b4b4ad;
+        font: 16px/1.35 var(--serif);
+      }
+
+      .command-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        margin-top: 22px;
+        padding: 10px 0;
+        border-top: 1px solid var(--line-strong);
+        border-bottom: 1px solid var(--line-strong);
+        color: var(--acid);
+        font-size: 10px;
+      }
+
+      .ledger-head,
+      .repo-head,
+      .draft-row {
+        display: grid;
+        grid-template-columns: 50px 210px minmax(250px, 1fr) 70px 76px;
+        align-items: center;
+      }
+
+      .ledger-head {
+        min-height: 34px;
+        padding: 0 30px;
+        border-bottom: 1px solid var(--line);
+        color: var(--faint);
+        font-size: 8px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .repo-head {
+        min-height: 46px;
+        padding: 0 30px;
+        border-bottom: 1px solid var(--line);
+        font-size: 11px;
+      }
+
+      .repo-head strong {
+        font-size: 12px;
+      }
+
+      .repo-head a {
+        color: var(--muted);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .group-no {
+        color: var(--acid);
+        font-size: 9px;
+      }
+
+      .group-count {
+        grid-column: 5;
+        color: var(--muted);
+        font-size: 9px;
+        text-align: right;
+      }
+
+      .draft-row {
+        min-height: 42px;
+        padding: 0 30px;
+        border-bottom: 1px solid var(--line);
+        color: #e5e5df;
+        font-size: 10px;
+        text-decoration: none;
+      }
+
+      .draft-row::before {
+        color: var(--faint);
+        content: attr(data-ref);
+        font-size: 8px;
+      }
+
+      .draft-row .draft-name {
+        grid-column: 3;
+        overflow: hidden;
+        font: 600 13px/1.2 var(--serif);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .row-version,
+      .row-time {
+        color: var(--acid);
+        font-size: 9px;
+        text-align: right;
+      }
+
+      .row-time {
+        color: var(--muted);
+      }
+
+      .c1-workbench {
+        display: grid;
+        grid-template-columns: 1.15fr 1fr 0.85fr;
+        border-top: 1px solid var(--line-strong);
+      }
+
+      .c1-workbench section {
+        min-height: 98px;
+        padding: 18px 26px;
+      }
+
+      .c1-workbench section + section {
+        border-left: 1px solid var(--line);
+      }
+
+      .c1-workbench strong {
+        display: block;
+        margin: 9px 0;
+        font: 400 19px/1 var(--serif);
+      }
+
+      .history-line,
+      .key-line {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        padding-top: 8px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 8px;
+      }
+
+      /* C2: repository directory */
+      .c2 .logo {
+        width: 244px;
+        border-right: 1px solid var(--line);
+      }
+
+      .c2-shell {
+        display: grid;
+        grid-template-columns: 244px minmax(0, 1fr);
+        min-height: 607px;
+      }
+
+      .directory {
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--line-strong);
+        font-size: 9px;
+      }
+
+      .directory-head {
+        display: flex;
+        justify-content: space-between;
+        padding: 20px 22px;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .directory a {
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr) auto;
+        gap: 9px;
+        align-items: center;
+        min-height: 54px;
+        padding: 0 22px;
+        border-bottom: 1px solid var(--line);
+        color: #c8c8c1;
+        text-decoration: none;
+      }
+
+      .directory a[aria-current="true"] {
+        background: var(--acid);
+        color: var(--black);
+      }
+
+      .directory-context {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 7px 14px;
+        margin: 0;
+        padding: 20px 22px;
+        color: var(--muted);
+      }
+
+      .directory-context dd,
+      .directory-context dt {
+        margin: 0;
+      }
+
+      .directory-context dd {
+        color: #d1d1ca;
+        text-align: right;
+      }
+
+      .directory-command {
+        margin-top: auto;
+        padding: 17px 22px;
+        border-top: 1px solid var(--line-strong);
+        color: var(--acid);
+      }
+
+      .c2-main {
+        display: flex;
+        min-width: 0;
+        flex-direction: column;
+      }
+
+      .c2-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        min-height: 155px;
+        padding: 28px 34px 24px;
+        border-bottom: 1px solid var(--line-strong);
+      }
+
+      .c2-head p,
+      .c2-head h3 {
+        margin: 0;
+      }
+
+      .c2-head h3 {
+        margin-top: 8px;
+        font-size: clamp(46px, 5vw, 72px);
+        line-height: 0.84;
+      }
+
+      .c2-total {
+        text-align: right;
+      }
+
+      .c2-total strong {
+        display: block;
+        font: 400 28px/1 var(--serif);
+      }
+
+      .c2-table-head,
+      .c2-row {
+        display: grid;
+        grid-template-columns: minmax(260px, 1fr) 72px 90px 70px;
+        align-items: center;
+      }
+
+      .c2-table-head {
+        min-height: 34px;
+        padding: 0 34px;
+        border-bottom: 1px solid var(--line);
+        color: var(--faint);
+        font-size: 8px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .c2-row {
+        position: relative;
+        min-height: 67px;
+        padding: 0 34px;
+        border-bottom: 1px solid var(--line);
+        text-decoration: none;
+      }
+
+      .c2-row.selected::before {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 3px;
+        background: var(--acid);
+        content: "";
+      }
+
+      .c2-row strong {
+        display: block;
+        font: 600 14px/1.2 var(--serif);
+      }
+
+      .c2-row small {
+        color: var(--muted);
+        font-size: 8px;
+      }
+
+      .c2-row span {
+        color: var(--muted);
+        font-size: 9px;
+        text-align: right;
+      }
+
+      .c2-row .current {
+        color: var(--acid);
+      }
+
+      .c2-activity {
+        display: grid;
+        grid-template-columns: 1fr 0.65fr;
+        margin-top: auto;
+        border-top: 1px solid var(--line-strong);
+      }
+
+      .c2-activity section {
+        min-height: 130px;
+        padding: 19px 34px;
+      }
+
+      .c2-activity section + section {
+        border-left: 1px solid var(--line);
+      }
+
+      .c2-activity strong {
+        display: block;
+        margin: 9px 0 13px;
+        font: 400 20px/1 var(--serif);
+      }
+
+      /* C3: command index */
+      .c3 .appbar {
+        min-height: 58px;
+      }
+
+      .c3 .logo,
+      .c3 .primary-nav a,
+      .c3 .account-nav a,
+      .c3 .account-name {
+        min-height: 57px;
+        border-right: 1px solid var(--line);
+      }
+
+      .c3 .primary-nav a {
+        gap: 10px;
+      }
+
+      .c3 .primary-nav b {
+        color: var(--acid);
+        font-weight: 500;
+      }
+
+      .c3 .account-nav {
+        gap: 0;
+        padding: 0;
+      }
+
+      .c3 .account-name,
+      .c3 .account-nav a {
+        padding: 0 20px;
+      }
+
+      .index-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 38px;
+        min-height: 126px;
+        padding: 23px 26px;
+        border-bottom: 1px solid var(--line-strong);
+      }
+
+      .index-head p,
+      .index-head h3,
+      .status-grid,
+      .status-grid dt,
+      .status-grid dd {
+        margin: 0;
+      }
+
+      .index-head h3 {
+        margin-top: 6px;
+        font-size: clamp(42px, 5vw, 68px);
+        line-height: 0.84;
+      }
+
+      .status-grid {
+        display: grid;
+        grid-template-columns: auto auto;
+        gap: 5px 20px;
+        color: var(--muted);
+        font-size: 8px;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+
+      .status-grid dd {
+        color: #d8d8d1;
+        text-align: right;
+      }
+
+      .c3-work {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 258px;
+        min-height: 447px;
+      }
+
+      .index-list {
+        min-width: 0;
+        border-right: 1px solid var(--line-strong);
+      }
+
+      .table-head,
+      .index-group,
+      .index-row {
+        display: grid;
+        grid-template-columns: 58px minmax(250px, 1fr) 66px 66px 52px;
+        align-items: center;
+      }
+
+      .table-head {
+        min-height: 28px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--line);
+        color: var(--faint);
+        font-size: 7px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .index-group {
+        min-height: 36px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--line);
+        background: #070707;
+        font-size: 9px;
+      }
+
+      .index-group strong {
+        grid-column: 2;
+      }
+
+      .index-group small {
+        grid-column: 5;
+        color: var(--muted);
+        font-size: 7px;
+        text-align: right;
+      }
+
+      .index-row {
+        position: relative;
+        min-height: 40px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--line);
+        color: #e5e5df;
+        font-size: 9px;
+        text-decoration: none;
+      }
+
+      .index-row.selected::before {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 58px;
+        background: var(--acid);
+        content: "";
+      }
+
+      .index-row.selected .row-ref {
+        position: relative;
+        z-index: 1;
+        color: var(--black);
+        font-weight: 700;
+      }
+
+      .index-row .draft-name {
+        overflow: hidden;
+        padding-left: 12px;
+        font-weight: 600;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .index-row .open {
+        color: var(--muted);
+        text-align: right;
+        text-decoration: underline;
+      }
+
+      .inspector {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .inspector section {
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .inspector h4,
+      .inspector p {
+        margin: 0;
+      }
+
+      .inspector h4 {
+        margin: 8px 0 14px;
+        font: 400 20px/1 var(--serif);
+      }
+
+      .inspector-facts,
+      .version-list {
+        display: grid;
+        gap: 0;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .inspector-facts div,
+      .version-list li {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 6px 0;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 8px;
+      }
+
+      .inspector-facts dt,
+      .inspector-facts dd {
+        margin: 0;
+      }
+
+      .inspector-facts dd,
+      .version-list strong {
+        color: #d9d9d2;
+      }
+
+      .version-list li:first-child strong,
+      .version-list li:first-child span {
+        color: var(--acid);
+      }
+
+      .index-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 22px;
+        min-height: 38px;
+        padding: 11px 14px;
+        border-top: 1px solid var(--line-strong);
+        color: var(--muted);
+        font-size: 7px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .decision {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 36px;
+        align-items: end;
+        padding-top: 50px;
+      }
+
+      .decision h2,
+      .decision p {
+        margin: 0;
+      }
+
+      .decision h2 {
+        margin-bottom: 10px;
+        font: 400 clamp(30px, 4vw, 50px) / 1 var(--serif);
+        letter-spacing: -0.045em;
+      }
+
+      .decision p {
+        max-width: 760px;
+        color: #aaa9a2;
+        font-size: 13px;
+      }
+
+      .decision-code {
+        color: var(--acid);
+        font-size: 11px;
+        text-align: right;
+      }
+
+      html[data-focus] .review {
+        padding-top: 18px;
+      }
+
+      html[data-focus] .review-head,
+      html[data-focus] .decision {
+        display: none;
+      }
+
+      html[data-focus] .variant {
+        display: none;
+        padding-top: 0;
+      }
+
+      html[data-focus="c1"] #c1,
+      html[data-focus="c2"] #c2,
+      html[data-focus="c3"] #c3 {
+        display: block;
+      }
+
+      @media (max-width: 960px) {
+        .review-head,
+        .variant-head {
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+
+        .variant-id {
+          font-size: 36px;
+        }
+
+        .mock {
+          min-height: auto;
+        }
+
+        .account-name {
+          display: none;
+        }
+
+        .c1-mast,
+        .c2-shell,
+        .c3-work {
+          grid-template-columns: 1fr;
+        }
+
+        .c1-title,
+        .directory,
+        .index-list {
+          border-right: 0;
+        }
+
+        .directory {
+          border-bottom: 1px solid var(--line-strong);
+        }
+
+        .directory nav {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+        }
+
+        .directory-context,
+        .directory-command {
+          display: none;
+        }
+
+        .c3-work {
+          min-height: 0;
+        }
+
+        .inspector {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          border-top: 1px solid var(--line-strong);
+        }
+
+        .inspector section {
+          border-right: 1px solid var(--line);
+        }
+      }
+
+      @media (max-width: 700px) {
+        .review {
+          padding-top: 26px;
+        }
+
+        .review,
+        .variant,
+        .variant-head,
+        .mock,
+        .c1-mast,
+        .c1-title,
+        .c1-command,
+        .c2-shell,
+        .c2-main,
+        .c3-work,
+        .index-list {
+          width: 100%;
+          min-width: 0;
+          max-width: 100%;
+        }
+
+        .review-copy,
+        .variant-copy,
+        .c1-command p,
+        .c2-row strong {
+          overflow-wrap: anywhere;
+        }
+
+        .feedback-list {
+          grid-template-columns: 1fr;
+        }
+
+        .feedback-list li + li {
+          border-top: 0;
+          border-left: 1px solid var(--line-strong);
+        }
+
+        .jump-nav a {
+          flex: 1 1 100%;
+        }
+
+        .jump-nav a + a {
+          border-top: 0;
+          border-left: 1px solid var(--line);
+        }
+
+        .appbar {
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr);
+          align-items: stretch;
+        }
+
+        .logo {
+          padding: 0 17px;
+        }
+
+        .primary-nav {
+          min-width: 0;
+          overflow: hidden;
+        }
+
+        .primary-nav a {
+          padding: 0 11px;
+        }
+
+        .account-nav {
+          grid-column: 1 / -1;
+          width: 100%;
+          justify-content: flex-end;
+          gap: 0;
+          margin-left: 0;
+          padding: 0 16px;
+          border-top: 1px solid var(--line);
+        }
+
+        .account-nav a {
+          min-height: 44px;
+        }
+
+        .c2 .logo {
+          width: auto;
+        }
+
+        .c1-mast,
+        .c1-workbench,
+        .c2-activity,
+        .inspector {
+          display: block;
+        }
+
+        .c1-title,
+        .c1-command,
+        .c2-head {
+          padding: 24px 20px;
+        }
+
+        .c1-title h3,
+        .c2-head h3,
+        .index-head h3 {
+          max-width: 100%;
+          font-size: clamp(40px, 13vw, 52px);
+          overflow-wrap: anywhere;
+        }
+
+        .command-line {
+          flex-direction: column;
+        }
+
+        .c1-workbench section + section,
+        .c2-activity section + section {
+          border-top: 1px solid var(--line);
+          border-left: 0;
+        }
+
+        .ledger-head,
+        .c2-table-head,
+        .table-head {
+          display: none;
+        }
+
+        .repo-head {
+          grid-template-columns: 36px minmax(0, 1fr) auto;
+          padding: 0 18px;
+        }
+
+        .repo-head a {
+          display: none;
+        }
+
+        .repo-head > span:empty {
+          display: none;
+        }
+
+        .group-count {
+          grid-column: 3;
+        }
+
+        .draft-row {
+          grid-template-columns: 36px minmax(0, 1fr) 45px 45px;
+          padding: 0 18px;
+        }
+
+        .draft-row .draft-name {
+          grid-column: 2;
+          font-size: 12px;
+        }
+
+        .directory nav {
+          display: block;
+        }
+
+        .c2-head {
+          min-height: 130px;
+          flex-wrap: wrap;
+          gap: 20px;
+        }
+
+        .c2-total {
+          display: flex;
+          width: 100%;
+          align-items: baseline;
+          gap: 8px;
+          text-align: left;
+        }
+
+        .c2-row {
+          grid-template-columns: minmax(0, 1fr) 50px 58px;
+          min-width: 0;
+          padding: 16px 20px;
+        }
+
+        .c2-row > span:first-child {
+          min-width: 0;
+          overflow: hidden;
+          text-align: left;
+        }
+
+        .c2-row > span:nth-of-type(2) {
+          display: none;
+        }
+
+        .index-head {
+          display: block;
+          min-width: 0;
+          padding: 23px 20px;
+        }
+
+        .status-grid {
+          width: 100%;
+          grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+          margin-top: 22px;
+        }
+
+        .status-grid dd {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .index-group,
+        .index-row {
+          grid-template-columns: 48px minmax(0, 1fr) 42px 48px;
+        }
+
+        .index-group small,
+        .index-row .open {
+          display: none;
+        }
+
+        .index-row.selected::before {
+          width: 48px;
+        }
+
+        .index-row .draft-name {
+          min-width: 0;
+        }
+
+        .c3 .account-name {
+          display: none;
+        }
+
+        .c3 .account-nav a {
+          min-height: 44px;
+          border-right: 0;
+        }
+
+        .decision {
+          grid-template-columns: 1fr;
+        }
+
+        .decision-code {
+          text-align: left;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="review">
+      <header class="review-head">
+        <div>
+          <p class="eyebrow">Variante C · Layout iteration</p>
+          <h1>Drei Wege, dieselbe Agentenidentität zu ordnen.</h1>
+        </div>
+        <div>
+          <p class="review-copy">
+            Alle Entwürfe übernehmen dein Feedback. Das Lime sitzt im Logo und markiert aktive
+            Zustände. Die Hauptnavigation steht direkt neben dem Logo. Account und Logout bleiben
+            oben rechts.
+          </p>
+          <ul class="feedback-list" aria-label="Übernommenes Feedback">
+            <li>pp<span class="acid">_</span> + Navigation</li>
+            <li>Account rechts</li>
+            <li>Layout als Variable</li>
+          </ul>
+          <nav class="jump-nav" aria-label="Layoutvarianten">
+            <a href="#c1">C1 · Editorial ledger</a>
+            <a href="#c2">C2 · Repository directory</a>
+            <a href="#c3">C3 · Command index</a>
+          </nav>
+        </div>
+      </header>
+
+      <section class="variant c1" id="c1">
+        <header class="variant-head">
+          <span class="variant-id">C1</span>
+          <div>
+            <h2>Editorial ledger</h2>
+            <p class="variant-meta">Überblick zuerst · alle Repositories sichtbar</p>
+          </div>
+          <p class="variant-copy">
+            Eine breite Werkbank. Der Titel bleibt redaktionell, darunter funktioniert die Seite wie
+            ein ruhiges Journal mit festen Spalten. Diese Fassung liegt am nächsten an der heutigen
+            Draft-Liste.
+          </p>
+        </header>
+
+        <article class="mock" aria-label="C1 Editorial ledger">
+          <header class="appbar">
+            <a class="logo" href="#c1" aria-label="pp home">pp<span>_</span></a>
+            <nav class="primary-nav" aria-label="Primary navigation">
+              <a href="#c1" aria-current="page">01 / drafts</a>
+              <a href="#c1">02 / cli keys</a>
+            </nav>
+            <nav class="account-nav" aria-label="Account navigation">
+              <span class="account-name">janis@example.com</span>
+              <a href="#c1">log out</a>
+            </nav>
+          </header>
+
+          <div class="c1-mast">
+            <div class="c1-title">
+              <p class="small-label">01 · 6 drafts · 3 sources</p>
+              <h3 class="title-serif">Private drafts.</h3>
+            </div>
+            <div class="c1-command">
+              <p>Every read and write starts with an identity. Every version stays addressable.</p>
+              <div class="command-line">
+                <span>$ pp upload ./plan.html</span><span>nok4tarxkb27 · v3</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="ledger-head" aria-hidden="true">
+            <span>No.</span><span>Source</span><span>Draft</span><span>Version</span
+            ><span>Updated</span>
+          </div>
+          <section aria-label="Drafts by repository">
+            <header class="repo-head">
+              <span class="group-no">01</span><strong>shubrt/forge</strong
+              ><a href="#c1">GitHub source</a><span></span><span class="group-count">3 drafts</span>
+            </header>
+            <a class="draft-row" data-ref="01.1" href="#c1">
+              <span class="draft-name">Drei Strategien für 1.000 Euro monatlich</span
+              ><span class="row-version">v3</span><time class="row-time">16:07</time>
+            </a>
+            <a class="draft-row" data-ref="01.2" href="#c1">
+              <span class="draft-name">F-1 und S-1 im Vergleich</span
+              ><span class="row-version">v1</span><time class="row-time">15:49</time>
+            </a>
+            <a class="draft-row" data-ref="01.3" href="#c1">
+              <span class="draft-name">Restrukturierungs- und Steuerplan</span
+              ><span class="row-version">v2</span><time class="row-time">14:41</time>
+            </a>
+            <header class="repo-head">
+              <span class="group-no">02</span><strong>shubrt/znacks</strong
+              ><a href="#c1">GitHub source</a><span></span><span class="group-count">2 drafts</span>
+            </header>
+            <a class="draft-row" data-ref="02.1" href="#c1">
+              <span class="draft-name">Kartenanalysen über Trigger.dev</span
+              ><span class="row-version">v1</span><time class="row-time">22:07</time>
+            </a>
+            <a class="draft-row" data-ref="02.2" href="#c1">
+              <span class="draft-name">M-1 Entwicklungsplan</span><span class="row-version">v2</span
+              ><time class="row-time">11:16</time>
+            </a>
+            <header class="repo-head">
+              <span class="group-no">03</span><strong>No repository</strong><span></span
+              ><span></span><span class="group-count">1 draft</span>
+            </header>
+            <a class="draft-row" data-ref="03.1" href="#c1">
+              <span class="draft-name">Report-Vergleich F-1 vs S-1</span
+              ><span class="row-version">v1</span><time class="row-time">15:41</time>
+            </a>
+          </section>
+
+          <aside class="c1-workbench" aria-label="Selected draft status">
+            <section>
+              <span class="small-label">Selected draft</span><strong>nok4tarxkb27</strong
+              ><span class="small-label">Drei Strategien für 1.000 Euro monatlich</span>
+            </section>
+            <section>
+              <span class="small-label">Version history</span><strong>v3 · current</strong>
+              <div class="history-line">
+                <span>v3 · 16:07</span><span>v2 · 14:41</span><span>v1 · 11:22</span>
+              </div>
+            </section>
+            <section>
+              <span class="small-label">CLI keys</span><strong>1 active</strong>
+              <div class="key-line">
+                <span>last used 16:07</span><a class="acid" href="#c1">revoke</a>
+              </div>
+            </section>
+          </aside>
+        </article>
+      </section>
+
+      <section class="variant c2" id="c2">
+        <header class="variant-head">
+          <span class="variant-id">C2</span>
+          <div>
+            <h2>Repository directory</h2>
+            <p class="variant-meta">Quelle zuerst · fokussierte Draft-Liste</p>
+          </div>
+          <p class="variant-copy">
+            Repositories werden zu einem echten Verzeichnis. Links wählst du den Arbeitskontext,
+            rechts siehst du nur dessen Drafts. Das Lime trägt hier die stärkste Navigationsrolle.
+          </p>
+        </header>
+
+        <article class="mock" aria-label="C2 Repository directory">
+          <header class="appbar">
+            <a class="logo" href="#c2" aria-label="pp home">pp<span>_</span></a>
+            <nav class="primary-nav" aria-label="Primary navigation">
+              <a href="#c2" aria-current="page">/ drafts</a>
+              <a href="#c2">/ cli keys</a>
+            </nav>
+            <nav class="account-nav" aria-label="Account navigation">
+              <span class="account-name">janis@example.com</span>
+              <a href="#c2">sign out</a>
+            </nav>
+          </header>
+
+          <div class="c2-shell">
+            <aside class="directory" aria-label="Repository directory">
+              <div class="directory-head"><span>Repositories</span><span>03</span></div>
+              <nav aria-label="Repositories">
+                <a href="#c2" aria-current="true"
+                  ><span>01</span><strong>shubrt/forge</strong><span>03</span></a
+                >
+                <a href="#c2"><span>02</span><strong>shubrt/znacks</strong><span>02</span></a>
+                <a href="#c2"><span>03</span><strong>No repository</strong><span>01</span></a>
+              </nav>
+              <dl class="directory-context">
+                <dt>selected</dt>
+                <dd>shubrt/forge</dd>
+                <dt>remote</dt>
+                <dd>GitHub ↗</dd>
+                <dt>latest write</dt>
+                <dd>13 Aug · 16:07</dd>
+              </dl>
+              <div class="directory-command">
+                $ pp upload ./plan.html<br />draft nok4tarxkb27 · v3
+              </div>
+            </aside>
+
+            <div class="c2-main">
+              <header class="c2-head">
+                <div>
+                  <p class="small-label"><span class="acid">01</span> / shubrt / forge</p>
+                  <h3 class="title-serif">Drafts</h3>
+                </div>
+                <p class="c2-total">
+                  <strong>03</strong><span class="small-label">private documents</span>
+                </p>
+              </header>
+              <div class="c2-table-head" aria-hidden="true">
+                <span>Draft</span><span>Current</span><span>History</span><span>Updated</span>
+              </div>
+              <a class="c2-row selected" href="#c2">
+                <span
+                  ><strong>Drei Strategien für 1.000 Euro monatlich</strong
+                  ><small>nok4tarxkb27</small></span
+                ><span class="current">v3</span><span>3 versions</span><span>16:07</span>
+              </a>
+              <a class="c2-row" href="#c2">
+                <span><strong>F-1 und S-1 im Vergleich</strong><small>pg6mc9dr08ft</small></span
+                ><span class="current">v1</span><span>1 version</span><span>15:49</span>
+              </a>
+              <a class="c2-row" href="#c2">
+                <span
+                  ><strong>Restrukturierungs- und Steuerplan</strong
+                  ><small>nx4yr90b1cta</small></span
+                ><span class="current">v2</span><span>2 versions</span><span>14:41</span>
+              </a>
+              <div class="c2-activity">
+                <section>
+                  <span class="small-label">Draft history</span><strong>nok4tarxkb27</strong>
+                  <div class="history-line">
+                    <span class="acid">v3 · 16:07</span><span>v2 · 14:41</span
+                    ><span>v1 · 11:22</span>
+                  </div>
+                </section>
+                <section>
+                  <span class="small-label">CLI keys</span><strong>1 active</strong>
+                  <div class="key-line">
+                    <span>last used 16:07</span><a class="acid" href="#c2">revoke</a>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="variant c3" id="c3">
+        <header class="variant-head">
+          <span class="variant-id">C3</span>
+          <div>
+            <h2>Command index</h2>
+            <p class="variant-meta">Geschwindigkeit zuerst · alles auf einer Fläche</p>
+          </div>
+          <p class="variant-copy">
+            Die dichteste Auslegung von C. Repository-Gruppen, Drafts und Versionen bleiben als
+            Index sichtbar. Ein Inspector rechts zeigt den aktuellen Draft, ohne die Liste zu
+            verlassen.
+          </p>
+        </header>
+
+        <article class="mock" aria-label="C3 Command index">
+          <header class="appbar">
+            <a class="logo" href="#c3" aria-label="pp home">pp<span>_</span></a>
+            <nav class="primary-nav" aria-label="Primary navigation">
+              <a href="#c3" aria-current="page">Drafts <b>06</b></a>
+              <a href="#c3">CLI keys <b>01</b></a>
+            </nav>
+            <nav class="account-nav" aria-label="Account navigation">
+              <span class="account-name">janis@example.com</span>
+              <a href="#c3">logout</a>
+            </nav>
+          </header>
+
+          <header class="index-head">
+            <div>
+              <p class="small-label acid">$ pp drafts --all</p>
+              <h3 class="title-serif">Private draft index.</h3>
+            </div>
+            <dl class="status-grid">
+              <dt>scope</dt>
+              <dd>all repositories</dd>
+              <dt>drafts</dt>
+              <dd>06</dd>
+              <dt>access</dt>
+              <dd class="acid">authenticated</dd>
+            </dl>
+          </header>
+
+          <div class="c3-work">
+            <section class="index-list" aria-label="Draft index">
+              <div class="table-head" aria-hidden="true">
+                <span>Ref</span><span>Draft</span><span>Version</span><span>Updated</span
+                ><span>Action</span>
+              </div>
+              <header class="index-group">
+                <span class="group-no">01</span><strong>shubrt/forge</strong><small>3 drafts</small>
+              </header>
+              <a class="index-row selected" href="#c3">
+                <span class="row-ref">01.01</span
+                ><span class="draft-name">Drei Strategien für 1.000 Euro monatlich</span
+                ><span class="row-version">v3</span><time class="row-time">16:07</time
+                ><span class="open">open</span>
+              </a>
+              <a class="index-row" href="#c3">
+                <span class="row-ref">01.02</span
+                ><span class="draft-name">F-1 und S-1 im Vergleich</span
+                ><span class="row-version">v1</span><time class="row-time">15:49</time
+                ><span class="open">open</span>
+              </a>
+              <a class="index-row" href="#c3">
+                <span class="row-ref">01.03</span
+                ><span class="draft-name">Restrukturierungs- und Steuerplan</span
+                ><span class="row-version">v2</span><time class="row-time">14:41</time
+                ><span class="open">open</span>
+              </a>
+              <header class="index-group">
+                <span class="group-no">02</span><strong>shubrt/znacks</strong
+                ><small>2 drafts</small>
+              </header>
+              <a class="index-row" href="#c3">
+                <span class="row-ref">02.01</span
+                ><span class="draft-name">Kartenanalysen über Trigger.dev</span
+                ><span class="row-version">v1</span><time class="row-time">22:07</time
+                ><span class="open">open</span>
+              </a>
+              <a class="index-row" href="#c3">
+                <span class="row-ref">02.02</span
+                ><span class="draft-name">M-1 Entwicklungsplan</span
+                ><span class="row-version">v2</span><time class="row-time">11:16</time
+                ><span class="open">open</span>
+              </a>
+              <header class="index-group">
+                <span class="group-no">03</span><strong>No repository</strong><small>1 draft</small>
+              </header>
+              <a class="index-row" href="#c3">
+                <span class="row-ref">03.01</span
+                ><span class="draft-name">Report-Vergleich F-1 vs S-1</span
+                ><span class="row-version">v1</span><time class="row-time">15:41</time
+                ><span class="open">open</span>
+              </a>
+            </section>
+
+            <aside class="inspector" aria-label="Selected draft inspector">
+              <section>
+                <span class="small-label">Selected draft · <span class="acid">current</span></span>
+                <h4>nok4tarxkb27</h4>
+                <dl class="inspector-facts">
+                  <div>
+                    <dt>repository</dt>
+                    <dd>shubrt/forge</dd>
+                  </div>
+                  <div>
+                    <dt>version</dt>
+                    <dd>v3</dd>
+                  </div>
+                  <div>
+                    <dt>updated</dt>
+                    <dd>16:07</dd>
+                  </div>
+                </dl>
+                <ol class="version-list">
+                  <li><strong>v3</strong><span>current · 16:07</span></li>
+                  <li><strong>v2</strong><span>14:41</span></li>
+                  <li><strong>v1</strong><span>11:22</span></li>
+                </ol>
+              </section>
+              <section>
+                <span class="small-label">CLI keys · <span class="acid">active</span></span>
+                <h4>1 active</h4>
+                <div class="key-line">
+                  <span>last used 16:07</span><a class="acid" href="#c3">revoke</a>
+                </div>
+              </section>
+              <section>
+                <span class="small-label">Agent command · <span class="acid">ready</span></span>
+                <p class="command-line">$ pp upload ./plan.html<br />nok4tarxkb27 · v3</p>
+              </section>
+            </aside>
+          </div>
+          <footer class="index-footer">
+            <span><span class="acid">06 drafts</span> across 03 repository groups</span>
+            <span>Every read and write requires identity</span>
+          </footer>
+        </article>
+      </section>
+
+      <footer class="decision">
+        <div>
+          <p class="eyebrow">Nächste Entscheidung</p>
+          <h2>Wähle C1, C2 oder C3.</h2>
+          <p>
+            Mischen ist ausdrücklich möglich. Zum Beispiel C2 als Grundlayout mit dem rechten
+            Inspector aus C3.
+          </p>
+        </div>
+        <p class="decision-code">layout only<br />visual system locked</p>
+      </footer>
+    </main>
+    <script>
+      const focus = new URLSearchParams(window.location.search).get("focus");
+      if (["c1", "c2", "c3"].includes(focus)) {
+        document.documentElement.dataset.focus = focus;
+      }
+    </script>
+  </body>
+</html>
