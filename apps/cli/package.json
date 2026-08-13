@@ -1,0 +1,29 @@
+{
+  "name": "@pp/cli",
+  "version": "0.1.0",
+  "description": "Command-line client for private pp drafts.",
+  "license": "MIT",
+  "bin": {
+    "pp": "./dist/cli.js"
+  },
+  "files": [
+    "dist/"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/cli.ts --outdir dist --target node --format esm",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pp/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@tool/tsconfig": "workspace:*",
+    "@types/bun": "^1.3.4",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
