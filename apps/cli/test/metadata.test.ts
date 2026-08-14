@@ -4,23 +4,23 @@ import { collectCiMetadata, parseRemote, sha256 } from "../src/metadata.js";
 
 describe("parseRemote", () => {
   test("parses scp-style GitHub remotes", () => {
-    expect(parseRemote("git@github.com:shubrt/pp.git")).toEqual({
+    expect(parseRemote("git@github.com:shubrt/pushover.git")).toEqual({
       host: "github.com",
       org: "shubrt",
-      name: "pp",
+      name: "pushover",
     });
   });
 
   test("parses https and ssh URLs", () => {
-    expect(parseRemote("https://github.com/shubrt/pp.git")).toEqual({
+    expect(parseRemote("https://github.com/shubrt/pushover.git")).toEqual({
       host: "github.com",
       org: "shubrt",
-      name: "pp",
+      name: "pushover",
     });
-    expect(parseRemote("ssh://git@gitlab.example/team/pp.git")).toEqual({
+    expect(parseRemote("ssh://git@gitlab.example/team/pushover.git")).toEqual({
       host: "gitlab.example",
       org: "team",
-      name: "pp",
+      name: "pushover",
     });
   });
 
@@ -34,13 +34,13 @@ describe("collectCiMetadata", () => {
     expect(
       collectCiMetadata({
         GITHUB_ACTIONS: "true",
-        GITHUB_REPOSITORY: "shubrt/pp",
+        GITHUB_REPOSITORY: "shubrt/pushover",
         GITHUB_RUN_ID: "42",
         GITHUB_ACTOR: "shubrt",
       }),
     ).toEqual({
       ciProvider: "github_actions",
-      ciRunUrl: "https://github.com/shubrt/pp/actions/runs/42",
+      ciRunUrl: "https://github.com/shubrt/pushover/actions/runs/42",
       ciActor: "shubrt",
     });
   });
@@ -52,5 +52,7 @@ describe("collectCiMetadata", () => {
 });
 
 test("sha256 hashes UTF-8 content", () => {
-  expect(sha256("pp")).toBe("d53315bea08cec50d2591fcaf3b32dc5d289cdc6c16b7e8bed8c8e3f7ceaa34e");
+  expect(sha256("pushover")).toBe(
+    "bf9f9d1b7f006b1e58ef724fe380a7b2b6d9b36ec1293318698f7b7d39c3dadd",
+  );
 });

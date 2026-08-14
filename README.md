@@ -1,11 +1,13 @@
-# pp
+# pushover
 
 Private, versioned HTML draft publishing for people and agents.
+
+Production runs at `https://pushover.dev`, with drafts on wildcard subdomains.
 
 ## Packages
 
 - `apps/api`: Elysia API, Shoo sign-in, PostgreSQL persistence and draft delivery
-- `apps/cli`: `pp` CLI for authentication, upload, update, list and whoami
+- `apps/cli`: `pushover` CLI for authentication, upload, update, list and whoami
 - `libs/contracts`: shared runtime-validated API contracts
 
 ## Local setup
@@ -17,7 +19,7 @@ corepack pnpm install
 cp .env.example .env
 docker compose up -d postgres
 corepack pnpm db:deploy
-corepack pnpm --filter @pp/api dev
+corepack pnpm --filter @pushover/api dev
 ```
 
 The apex runs at `http://localhost:3003`. Drafts use
@@ -27,7 +29,7 @@ depends on the browser and operating system.
 Build the CLI with:
 
 ```bash
-corepack pnpm --filter @pp/cli build
+corepack pnpm --filter @pushover/cli build
 node apps/cli/dist/cli.js auth login --api-url http://localhost:3003
 ```
 

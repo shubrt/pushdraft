@@ -5,7 +5,7 @@ const database = createDatabase(loadConfig());
 
 try {
   await database.migrate();
-  console.log("pp database schema is current.");
+  console.log("pushover database schema is current.");
 } finally {
   await database.close();
 }

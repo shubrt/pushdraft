@@ -1,7 +1,7 @@
 import type { DraftSummary } from "./api-types.js";
 
 export function formatDrafts(drafts: DraftSummary[], now = Date.now()): string {
-  if (drafts.length === 0) return "No drafts yet. Publish one with: pp upload <file>";
+  if (drafts.length === 0) return "No drafts yet. Publish one with: pushover upload <file>";
 
   const output = [`Drafts (${drafts.length})`, ""];
   for (const draft of drafts) {

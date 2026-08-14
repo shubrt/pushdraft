@@ -5,7 +5,7 @@ import {
   draftListResponseSchema,
   meResponseSchema,
   uploadResponseSchema,
-} from "@pp/contracts";
+} from "@pushover/contracts";
 import type { PoolClient, QueryResultRow } from "pg";
 
 import { createApp } from "../src/app";
@@ -21,7 +21,7 @@ import {
   type QueryCall,
 } from "./helpers";
 
-const API_TOKEN = "pp_contract-test-token";
+const API_TOKEN = "pushover_contract-test-token";
 const ACCOUNT_ID = "acct_contracts";
 const CREATED_AT = "2026-08-13T20:30:00.000Z";
 const FILE_SHA256 = "a".repeat(64);
@@ -267,7 +267,7 @@ function draftRow(): QueryResultRow {
     title: "Private plan",
     description: "Contract fixture",
     repo_org: "shubrt",
-    repo_name: "pp",
+    repo_name: "pushover",
     repo_host: "github.com",
     created_at: CREATED_AT,
     updated_at: CREATED_AT,

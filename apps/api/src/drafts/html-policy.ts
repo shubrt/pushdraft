@@ -126,7 +126,7 @@ export function validateHtml(html: string, maxBytes: number): HtmlValidation {
   }
 
   if (tooDeep) errors.push(`HTML is nested more than ${MAX_DEPTH} levels deep.`);
-  if (!title) warnings.push("No <title> found; pp will use the filename.");
+  if (!title) warnings.push("No <title> found; pushover will use the filename.");
   return result(errors, warnings, title, hasInlineScript, imageHosts);
 }
 

@@ -6,7 +6,7 @@ import path from "node:path";
 import { isJsonObject } from "./api-types.js";
 import { CliError } from "./errors.js";
 
-export const DEFAULT_API_URL = "http://localhost:3003";
+export const DEFAULT_API_URL = "https://pushover.dev";
 
 export interface StatePaths {
   directory: string;
@@ -55,7 +55,7 @@ interface ResolveAuthOptions {
 }
 
 export function createStatePaths(homeDirectory = os.homedir()): StatePaths {
-  const directory = path.join(homeDirectory, ".pp");
+  const directory = path.join(homeDirectory, ".pushover");
   return {
     directory,
     config: path.join(directory, "config.json"),
@@ -83,17 +83,17 @@ export function readAuth(
 
 export function resolveAuth(options: ResolveAuthOptions): Auth {
   const apiUrl = normalizeApiUrl(
-    options.apiUrlOverride ?? options.env.PP_API_URL ?? options.config.apiUrl ?? DEFAULT_API_URL,
+    options.apiUrlOverride ?? options.env.API_URL ?? options.config.apiUrl ?? DEFAULT_API_URL,
   );
   const savedApiKey = nonEmpty(options.credentials.apiKey);
-  const apiKey = nonEmpty(options.env.PP_API_KEY) ?? savedApiKey;
+  const apiKey = nonEmpty(options.env.API_KEY) ?? savedApiKey;
   const accountId =
     apiKey !== undefined && apiKey === savedApiKey
       ? nonEmpty(options.credentials.accountId)
       : undefined;
 
   if ((options.requireApiKey ?? true) && apiKey === undefined) {
-    throw new CliError("Missing API key. Run: pp auth login");
+    throw new CliError("Missing API key. Run: pushover auth login");
   }
 
   return accountId === undefined ? { apiUrl, apiKey } : { apiUrl, apiKey, accountId };

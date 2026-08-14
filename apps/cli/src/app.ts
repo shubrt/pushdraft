@@ -2,7 +2,7 @@ import { once } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import * as readline from "node:readline/promises";
-import type { UploadPayloadInput } from "@pp/contracts";
+import type { UploadPayloadInput } from "@pushover/contracts";
 
 import {
   apiErrorMessage,
@@ -58,7 +58,7 @@ export async function runCli(argv: string[], options: RunCliOptions): Promise<vo
       return;
     case "auth-set":
       saveCredentials(statePaths, command.apiKey, command.apiUrl);
-      output.log("pp credentials saved.");
+      output.log("pushover credentials saved.");
       return;
     case "auth-login":
       await login(command.apiUrl, statePaths, fetchImpl, output, options.version);
@@ -252,11 +252,11 @@ function authenticatedHeaders(apiKey: string, version: string): Record<string, s
   return {
     Accept: "application/json",
     Authorization: `Bearer ${apiKey}`,
-    "User-Agent": `pp/${version}`,
+    "User-Agent": `pushover/${version}`,
   };
 }
 
 function requireApiKey(apiKey: string | undefined): string {
-  if (apiKey === undefined) throw new CliError("Missing API key. Run: pp auth login");
+  if (apiKey === undefined) throw new CliError("Missing API key. Run: pushover auth login");
   return apiKey;
 }
