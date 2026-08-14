@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vite-plus/test";
 import type { QueryResultRow } from "pg";
 
 import { createApp } from "../src/app";
@@ -168,7 +168,7 @@ describe("browser draft handshake", () => {
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("set-cookie")).toStartWith("__Host-pushover_draft=");
+    expect(response.headers.get("set-cookie")).toMatch(/^__Host-pushover_draft=/);
     expect(response.headers.get("content-security-policy")).toContain("form-action 'none'");
     expect(body).toContain('window.location.replace("/v/7")');
   });

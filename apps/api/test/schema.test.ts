@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vite-plus/test";
 import { readFile } from "node:fs/promises";
 
 const schemaPath = new URL("../src/db/schema.sql", import.meta.url);

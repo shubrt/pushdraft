@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vite-plus/test";
 import {
   apiErrorSchema,
   draftDetailResponseSchema,
@@ -127,7 +127,7 @@ describe("API error contracts", () => {
     const response = await request("/api/me", createFakeDatabase(unexpectedQuery));
 
     expect(response.status).toBe(401);
-    expect(apiErrorSchema.parse(await responseJson(response)).ok).toBeFalse();
+    expect(apiErrorSchema.parse(await responseJson(response)).ok).toBe(false);
   });
 
   test("returns a contract error for an unknown owned draft", async () => {
@@ -157,7 +157,7 @@ describe("API error contracts", () => {
     const body = apiErrorSchema.parse(await responseJson(response));
 
     expect(response.status).toBe(422);
-    expect(body.ok).toBeFalse();
+    expect(body.ok).toBe(false);
     expect("errors" in body ? body.errors : []).not.toHaveLength(0);
   });
 });

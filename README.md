@@ -12,14 +12,15 @@ Production runs at `https://pushover.dev`, with drafts on wildcard subdomains.
 
 ## Local setup
 
-Requirements: Node 22+, pnpm 11+, Bun 1.3.10+ and Docker.
+Requirements: [Vite+](https://viteplus.dev) (`vp`), Node 22+, Bun 1.3.10+ and Docker.
+`vp` drives installs, scripts, checks and tests; Bun is the API runtime and bundler.
 
 ```bash
-corepack pnpm install
+vp i
 cp .env.example .env
 docker compose up -d postgres
-corepack pnpm db:deploy
-corepack pnpm --filter @pushover/api dev
+vp run db:deploy
+vp run -F @pushover/api dev
 ```
 
 The apex runs at `http://localhost:3003`. Drafts use
@@ -29,14 +30,22 @@ depends on the browser and operating system.
 Build the CLI with:
 
 ```bash
-corepack pnpm --filter @pushover/cli build
+vp run -F @pushover/cli build
 node apps/cli/dist/cli.js auth login --api-url http://localhost:3003
 ```
 
 ## Checks
 
 ```bash
-corepack pnpm qa
+vp run qa
+```
+
+`qa` runs formatting, linting, `sherif`, typechecks and the test suite. Tests live
+in each package's `test/` directory and run from the repository root:
+
+```bash
+vp test run     # single pass
+vp test watch   # watch mode
 ```
 
 The API keeps every browser page and draft private. Browser access uses a Shoo

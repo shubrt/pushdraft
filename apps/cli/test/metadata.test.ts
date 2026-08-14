@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vite-plus/test";
 
 import { collectCiMetadata, parseRemote, sha256 } from "../src/metadata.js";
 

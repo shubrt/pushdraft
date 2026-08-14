@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vite-plus/test";
 
 import {
   createAuthStateCookie,
@@ -24,7 +24,7 @@ describe("host-only authentication cookies", () => {
     const cookies = [sessionCookie, authStateCookie, draftCookie];
 
     for (const cookie of cookies) {
-      expect(cookie).toStartWith("__Host-");
+      expect(cookie).toMatch(/^__Host-/);
       expectCookieAttribute(cookie, "Path=/");
       expectCookieAttribute(cookie, "Secure");
       expectCookieAttribute(cookie, "HttpOnly");
@@ -39,7 +39,7 @@ describe("host-only authentication cookies", () => {
   test("the CSRF cookie remains host-only but readable for double-submit forms", () => {
     const cookie = createCsrfCookie(TEST_CONFIG, "csrf-token");
 
-    expect(cookie).toStartWith("__Host-");
+    expect(cookie).toMatch(/^__Host-/);
     expectCookieAttribute(cookie, "Path=/");
     expectCookieAttribute(cookie, "Secure");
     expectCookieAttribute(cookie, "SameSite=Strict");
