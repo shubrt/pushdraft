@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vite-plus/test";
 import type { DraftDetailResponse, DraftSummary } from "@pushover/contracts";
 
 import type { WebSession } from "../src/auth/session";

@@ -16,4 +16,5 @@ publicHoistPattern:
 catalog:
   zod: ^4.1.5
   typescript: ^5.9.2
+  vite-plus: ^0.1.21
   "@t3-oss/env-core": ^0.13.8

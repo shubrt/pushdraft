@@ -1,6 +1,12 @@
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  // `vp test` runs every workspace suite from the repository root; each package
+  // keeps its tests in `test/` next to `src/`.
+  test: {
+    include: ["{apps,libs}/*/test/**/*.test.ts"],
+  },
+
   lint: {
     ignorePatterns: [
       "**/node_modules/**",
@@ -13,7 +19,6 @@ export default defineConfig({
       "**/.gemini/**",
       "**/.cursor/**",
       "**/*.gen.ts",
-      "docs/private-postplan-plan.html",
     ],
     options: { typeAware: true, typeCheck: true },
   },
@@ -30,7 +35,6 @@ export default defineConfig({
       "**/.gemini/**",
       "**/.cursor/**",
       "**/*.gen.ts",
-      "docs/private-postplan-plan.html",
     ],
   },
 
