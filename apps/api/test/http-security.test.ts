@@ -12,18 +12,18 @@ import {
   unexpectedQuery,
 } from "./helpers";
 
-const DRAFT_ORIGIN = `https://${TEST_DRAFT_ID}.pp.example`;
-const OWNER_TOKEN = "pp_owner-token";
-const FOREIGN_TOKEN = "pp_foreign-token";
+const DRAFT_ORIGIN = `https://${TEST_DRAFT_ID}.pushover.example`;
+const OWNER_TOKEN = "pushover_owner-token";
+const FOREIGN_TOKEN = "pushover_foreign-token";
 const WEB_SESSION_TOKEN = "web-session-token";
 const CSRF_TOKEN = "csrf-token";
 
 describe("host classification", () => {
   test.each([
     ["foreign hostname", "https://evil.example/"],
-    ["nested draft hostname", `https://nested.${TEST_DRAFT_ID}.pp.example/raw`],
-    ["trailing dot on apex", "https://pp.example./"],
-    ["trailing dot on draft hostname", `https://${TEST_DRAFT_ID}.pp.example./raw`],
+    ["nested draft hostname", `https://nested.${TEST_DRAFT_ID}.pushover.example/raw`],
+    ["trailing dot on apex", "https://pushover.example./"],
+    ["trailing dot on draft hostname", `https://${TEST_DRAFT_ID}.pushover.example./raw`],
   ])("rejects %s", async (_label, url) => {
     const response = await request(url, createFakeDatabase(unexpectedQuery));
 
@@ -33,7 +33,7 @@ describe("host classification", () => {
 
   test("accepts only the exact apex and one draft-id label", async () => {
     const database = createFakeDatabase(unexpectedQuery);
-    const apexResponse = await request("https://pp.example/", database);
+    const apexResponse = await request("https://pushover.example/", database);
     const draftResponse = await request(`${DRAFT_ORIGIN}/raw`, database);
 
     expect(apexResponse.status).toBe(200);
@@ -46,7 +46,7 @@ describe("draft authentication", () => {
     const response = await request(`${DRAFT_ORIGIN}/raw`, createFakeDatabase(unexpectedQuery));
 
     expect(response.status).toBe(401);
-    expect(response.headers.get("www-authenticate")).toBe('Bearer realm="pp"');
+    expect(response.headers.get("www-authenticate")).toBe('Bearer realm="pushover"');
   });
 
   test("an Authorization header wins over a valid draft cookie", async () => {
@@ -133,7 +133,9 @@ describe("browser draft handshake", () => {
     const response = await request(`${DRAFT_ORIGIN}/v/7`, createFakeDatabase(unexpectedQuery));
 
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe(`https://pp.example/${TEST_DRAFT_ID}?version=7`);
+    expect(response.headers.get("location")).toBe(
+      `https://pushover.example/${TEST_DRAFT_ID}?version=7`,
+    );
   });
 
   test("sets the draft cookie before navigating away from the exchange page", async () => {
@@ -158,7 +160,7 @@ describe("browser draft handshake", () => {
     const response = await request(`${DRAFT_ORIGIN}/_auth/exchange`, database, {
       method: "POST",
       headers: {
-        origin: "https://pp.example",
+        origin: "https://pushover.example",
         "content-type": "application/x-www-form-urlencoded",
       },
       body: `ticket=${encodeURIComponent(ticket)}`,
@@ -166,15 +168,19 @@ describe("browser draft handshake", () => {
     const body = await response.text();
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("set-cookie")).toStartWith("__Host-pp_draft=");
+    expect(response.headers.get("set-cookie")).toStartWith("__Host-pushover_draft=");
     expect(response.headers.get("content-security-policy")).toContain("form-action 'none'");
     expect(body).toContain('window.location.replace("/v/7")');
   });
 
   test("allows only the concrete draft exchange endpoint from the apex bridge", async () => {
-    const response = await request(`https://pp.example/${TEST_DRAFT_ID}`, bridgePageDatabase(), {
-      headers: { cookie: `${SESSION_COOKIE}=${WEB_SESSION_TOKEN}` },
-    });
+    const response = await request(
+      `https://pushover.example/${TEST_DRAFT_ID}`,
+      bridgePageDatabase(),
+      {
+        headers: { cookie: `${SESSION_COOKIE}=${WEB_SESSION_TOKEN}` },
+      },
+    );
     const policy = response.headers.get("content-security-policy") ?? "";
 
     expect(response.status).toBe(200);
@@ -185,17 +191,24 @@ describe("browser draft handshake", () => {
 
 describe("browser mutations", () => {
   test("keeps same-origin form origins available for CSRF validation", async () => {
-    const response = await request("https://pp.example/", createFakeDatabase(unexpectedQuery));
+    const response = await request(
+      "https://pushover.example/",
+      createFakeDatabase(unexpectedQuery),
+    );
 
     expect(response.headers.get("referrer-policy")).toBe("strict-origin");
   });
 
   test("accepts an exact origin with matching session and CSRF tokens", async () => {
-    const response = await request("https://pp.example/cli/auth/keys", browserMutationDatabase(), {
-      method: "POST",
-      headers: browserMutationHeaders("https://pp.example"),
-      body: `csrf=${encodeURIComponent(CSRF_TOKEN)}`,
-    });
+    const response = await request(
+      "https://pushover.example/cli/auth/keys",
+      browserMutationDatabase(),
+      {
+        method: "POST",
+        headers: browserMutationHeaders("https://pushover.example"),
+        body: `csrf=${encodeURIComponent(CSRF_TOKEN)}`,
+      },
+    );
 
     expect(response.status).toBe(200);
     expect(await response.text()).toContain("Your new API key");
@@ -203,7 +216,7 @@ describe("browser mutations", () => {
 
   test("still rejects a null origin with valid cookies and CSRF token", async () => {
     const database = browserMutationDatabase();
-    const response = await request("https://pp.example/cli/auth/keys", database, {
+    const response = await request("https://pushover.example/cli/auth/keys", database, {
       method: "POST",
       headers: browserMutationHeaders("null"),
       body: `csrf=${encodeURIComponent(CSRF_TOKEN)}`,

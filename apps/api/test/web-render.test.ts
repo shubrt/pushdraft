@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { DraftDetailResponse, DraftSummary } from "@pp/contracts";
+import type { DraftDetailResponse, DraftSummary } from "@pushover/contracts";
 
 import type { WebSession } from "../src/auth/session";
 import { renderCliAuth, renderDraftDetail, renderDrafts } from "../src/web/render";
@@ -18,7 +18,7 @@ const DRAFT: DraftSummary = {
   title: "Private plan",
   description: null,
   repoOrg: "shubrt",
-  repoName: "pp",
+  repoName: "pushover",
   repoHost: "github.com",
   latestVersionNumber: 3,
   versionCount: 3,
@@ -26,8 +26,8 @@ const DRAFT: DraftSummary = {
   updatedAt: "2026-08-13T16:07:00.000Z",
   latestVersionAt: "2026-08-13T16:07:00.000Z",
   disabled: false,
-  publicUrl: "https://nok4tarxkb27.pp.example",
-  rawUrl: "https://nok4tarxkb27.pp.example/raw",
+  publicUrl: "https://nok4tarxkb27.pushover.example",
+  rawUrl: "https://nok4tarxkb27.pushover.example/raw",
 };
 
 describe("web rendering", () => {
@@ -38,7 +38,7 @@ describe("web rendering", () => {
     expect(rendered).toContain("--accent:#dfff00");
     expect(rendered).not.toContain("#1d4ed8");
     expect(rendered).toContain('class="active" aria-current="page" href="/drafts"');
-    expect(rendered).toContain('href="https://github.com/shubrt/pp"');
+    expect(rendered).toContain('href="https://github.com/shubrt/pushover"');
     expect(rendered).toContain("v3");
     expect(rendered).toContain("3 versions");
   });
@@ -65,8 +65,8 @@ describe("web rendering", () => {
           versionId: "version_render",
           versionNumber: 3,
           createdAt: "2026-08-13T16:07:00.000Z",
-          publicUrl: "https://nok4tarxkb27.pp.example/v/3",
-          rawUrl: "https://nok4tarxkb27.pp.example/v/3/raw",
+          publicUrl: "https://nok4tarxkb27.pushover.example/v/3",
+          rawUrl: "https://nok4tarxkb27.pushover.example/v/3/raw",
           file: {
             fileId: "file_render",
             filename: "plan.pdf",

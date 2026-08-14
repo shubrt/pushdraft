@@ -8,4 +8,4 @@ await database.migrate();
 
 const app = createApp({ config, database }).listen(config.port);
 
-console.log(`pp listening on ${app.server?.hostname}:${app.server?.port}`);
+console.log(`pushover listening on ${app.server?.hostname}:${app.server?.port}`);

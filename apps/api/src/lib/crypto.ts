@@ -20,7 +20,7 @@ export function signToken<Payload extends Record<string, unknown>>(
 }
 
 export function deriveSigningSecret(secret: string, purpose: string): string {
-  return createHmac("sha256", secret).update(`pp:${purpose}`).digest("base64url");
+  return createHmac("sha256", secret).update(`pushover:${purpose}`).digest("base64url");
 }
 
 export function verifyToken<Payload extends Record<string, unknown>>(

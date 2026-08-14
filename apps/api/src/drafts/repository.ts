@@ -5,7 +5,7 @@ import type {
   DraftVersion,
   UploadPayload,
   UploadResponse,
-} from "@pp/contracts";
+} from "@pushover/contracts";
 import type { QueryResultRow } from "pg";
 
 import type { AppConfig } from "../config";

@@ -20,7 +20,7 @@ const draft = {
   title: "Private Postplan",
   description: null,
   repoOrg: "shubrt",
-  repoName: "pp",
+  repoName: "pushover",
   repoHost: "github.com",
   latestVersionNumber: 1,
   versionCount: 1,
@@ -28,8 +28,8 @@ const draft = {
   updatedAt: createdAt,
   latestVersionAt: createdAt,
   disabled: false,
-  publicUrl: `https://${draftId}.pp.example`,
-  rawUrl: `https://${draftId}.pp.example/raw`,
+  publicUrl: `https://${draftId}.pushover.example`,
+  rawUrl: `https://${draftId}.pushover.example/raw`,
 };
 
 describe("upload contracts", () => {
@@ -41,7 +41,7 @@ describe("upload contracts", () => {
         draftId: null,
         metadata: {
           repoOrg: "shubrt",
-          repoName: "pp",
+          repoName: "pushover",
           repoHost: "github.com",
           gitBranch: "main",
           gitCommitSha: "a".repeat(40),
@@ -61,8 +61,8 @@ describe("upload contracts", () => {
         versionNumber: 1,
         title: "Private Postplan",
         requestId: null,
-        publicUrl: `https://${draftId}.pp.example`,
-        rawUrl: `https://${draftId}.pp.example/raw`,
+        publicUrl: `https://${draftId}.pushover.example`,
+        rawUrl: `https://${draftId}.pushover.example/raw`,
         warnings: [],
       }),
     );
@@ -122,8 +122,8 @@ describe("draft contracts", () => {
             versionId: "JzH3fQ8am2n4VKgTb9Xe",
             versionNumber: 1,
             createdAt,
-            publicUrl: `https://${draftId}.pp.example/v/1`,
-            rawUrl: `https://${draftId}.pp.example/v/1/raw`,
+            publicUrl: `https://${draftId}.pushover.example/v/1`,
+            rawUrl: `https://${draftId}.pushover.example/v/1/raw`,
             file: {
               fileId: "Sb3aXw8uFrQ9tL5mN2pK",
               filename: "plan.html",

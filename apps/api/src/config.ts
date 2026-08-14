@@ -12,15 +12,15 @@ export type AppConfig = {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const isProduction = env.NODE_ENV === "production";
-  const publicUrl = parsePublicUrl(env.PP_PUBLIC_URL ?? DEFAULT_LOCAL_URL, isProduction);
+  const publicUrl = parsePublicUrl(env.PUBLIC_URL ?? DEFAULT_LOCAL_URL, isProduction);
 
   return {
     port: readPositiveInteger(env.PORT, 3003),
-    databaseUrl: requireValue("PP_DATABASE_URL", env.PP_DATABASE_URL ?? env.DATABASE_URL),
+    databaseUrl: requireValue("DATABASE_URL", env.DATABASE_URL),
     publicUrl,
-    sessionSecret: requireSecret(env.PP_SESSION_SECRET),
-    shooBaseUrl: parseHttpsUrl(env.PP_SHOO_BASE_URL ?? "https://shoo.dev", "PP_SHOO_BASE_URL"),
-    maxHtmlBytes: readPositiveInteger(env.PP_MAX_HTML_BYTES, 512 * 1024),
+    sessionSecret: requireSecret(env.SESSION_SECRET),
+    shooBaseUrl: parseHttpsUrl(env.SHOO_BASE_URL ?? "https://shoo.dev", "SHOO_BASE_URL"),
+    maxHtmlBytes: readPositiveInteger(env.MAX_HTML_BYTES, 512 * 1024),
     isProduction,
   };
 }
@@ -28,13 +28,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 function parsePublicUrl(value: string, isProduction: boolean): URL {
   const url = new URL(value);
   if (url.pathname !== "/" || url.search || url.hash) {
-    throw new Error("PP_PUBLIC_URL must be an origin without a path, query, or fragment.");
+    throw new Error("PUBLIC_URL must be an origin without a path, query, or fragment.");
   }
   if (isProduction && url.protocol !== "https:") {
-    throw new Error("PP_PUBLIC_URL must use HTTPS in production.");
+    throw new Error("PUBLIC_URL must use HTTPS in production.");
   }
   if (!isProduction && url.protocol !== "https:" && url.protocol !== "http:") {
-    throw new Error("PP_PUBLIC_URL must use HTTP or HTTPS.");
+    throw new Error("PUBLIC_URL must use HTTP or HTTPS.");
   }
   return url;
 }
@@ -57,9 +57,9 @@ function requireValue(name: string, value: string | undefined): string {
 }
 
 function requireSecret(value: string | undefined): string {
-  const secret = requireValue("PP_SESSION_SECRET", value);
+  const secret = requireValue("SESSION_SECRET", value);
   if (Buffer.byteLength(secret, "utf8") < 32) {
-    throw new Error("PP_SESSION_SECRET must contain at least 32 bytes.");
+    throw new Error("SESSION_SECRET must contain at least 32 bytes.");
   }
   return secret;
 }

@@ -2,10 +2,10 @@ import type { AppConfig } from "../config";
 import { readCookie, serializeHostCookie } from "../lib/cookies";
 import { deriveSigningSecret, signToken, verifyToken } from "../lib/crypto";
 
-export const SESSION_COOKIE = "__Host-pp_session";
-export const AUTH_STATE_COOKIE = "__Host-pp_auth_state";
-export const DRAFT_SESSION_COOKIE = "__Host-pp_draft";
-export const CSRF_COOKIE = "__Host-pp_csrf";
+export const SESSION_COOKIE = "__Host-pushover_session";
+export const AUTH_STATE_COOKIE = "__Host-pushover_auth_state";
+export const DRAFT_SESSION_COOKIE = "__Host-pushover_draft";
+export const CSRF_COOKIE = "__Host-pushover_csrf";
 
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const AUTH_STATE_TTL_SECONDS = 10 * 60;

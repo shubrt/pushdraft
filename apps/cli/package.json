@@ -1,10 +1,10 @@
 {
-  "name": "@pp/cli",
+  "name": "@pushover/cli",
   "version": "0.1.0",
-  "description": "Command-line client for private pp drafts.",
+  "description": "Command-line client for private pushover drafts.",
   "license": "MIT",
   "bin": {
-    "pp": "./dist/cli.js"
+    "pushover": "./dist/cli.js"
   },
   "files": [
     "dist/"
@@ -16,7 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pp/contracts": "workspace:*"
+    "@pushover/contracts": "workspace:*"
   },
   "devDependencies": {
     "@tool/tsconfig": "workspace:*",

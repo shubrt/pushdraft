@@ -1,4 +1,4 @@
-import type { DraftDetailResponse, DraftSummary } from "@pp/contracts";
+import type { DraftDetailResponse, DraftSummary } from "@pushover/contracts";
 
 import type { WebSession } from "../auth/session";
 
@@ -6,12 +6,12 @@ type ActiveNavigation = "drafts" | "cli";
 
 export function renderHome(): string {
   return page(
-    "pp",
+    "pushover",
     `${publicHeader()}<main class="landing page-shell">
       <p class="eyebrow">PRIVATE DRAFT PUBLISHING</p>
       <h1>Private drafts<br>for agents.</h1>
       <p class="lede">Authenticated static HTML publishing for humans and agents.</p>
-      <pre class="command"><span>$</span> npx @pp/cli upload ./plan.html</pre>
+      <pre class="command"><span>$</span> npx @pushover/cli upload ./plan.html</pre>
       <div class="landing-links"><a href="/drafts">My drafts</a><a href="/cli/auth">CLI setup</a></div>
     </main>`,
   );
@@ -19,7 +19,7 @@ export function renderHome(): string {
 
 export function renderSignIn(next: string): string {
   return page(
-    "Sign in · pp",
+    "Sign in · pushover",
     `${publicHeader()}<main class="center page-shell">
       <div class="center-content">
         <p class="eyebrow">IDENTITY REQUIRED</p>
@@ -34,7 +34,7 @@ export function renderSignIn(next: string): string {
 
 export function renderAuthError(message: string): string {
   return page(
-    "Sign-in error · pp",
+    "Sign-in error · pushover",
     `${publicHeader()}<main class="center page-shell"><div class="center-content"><p class="eyebrow">SIGN-IN ERROR</p><h1>Could not sign in.</h1><p class="lede">${escapeHtml(message)}</p><p><a href="/">Return home</a></p></div></main>`,
   );
 }
@@ -61,8 +61,8 @@ export function renderDrafts(
     .join("");
 
   return page(
-    "My drafts · pp",
-    `${header(session, csrfToken, "drafts")}<main class="screen page-shell"><h1 class="screen-title">My drafts</h1>${body || '<p class="empty-state">No drafts yet. Upload one with <code>pp upload ./plan.html</code>.</p>'}</main>`,
+    "My drafts · pushover",
+    `${header(session, csrfToken, "drafts")}<main class="screen page-shell"><h1 class="screen-title">My drafts</h1>${body || '<p class="empty-state">No drafts yet. Upload one with <code>pushover upload ./plan.html</code>.</p>'}</main>`,
   );
 }
 
@@ -82,7 +82,7 @@ export function renderDraftDetail(
     .join("");
 
   return page(
-    `${detail.draft.title} · pp`,
+    `${detail.draft.title} · pushover`,
     `${header(session, csrfToken, "drafts")}<main class="screen detail-screen page-shell">
       <a class="back-link" href="/drafts">← My drafts</a>
       <div class="detail-heading">
@@ -118,11 +118,11 @@ export function renderCliAuth(
     .join("");
 
   return page(
-    "CLI setup · pp",
+    "CLI setup · pushover",
     `${header(session, csrfToken, "cli")}<main class="screen cli-screen page-shell">
       <p class="eyebrow">/CLI/AUTH</p>
       <h1>Connect your CLI</h1>
-      <p class="lede">Generate a key, then paste it into <code>pp auth login</code>.</p>
+      <p class="lede">Generate a key, then paste it into <code>pushover auth login</code>.</p>
       <form class="primary-form" method="post" action="/cli/auth/keys">
         <input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">
         <button type="submit">Generate a new API key</button>
@@ -141,7 +141,7 @@ export function renderApiKey(
   key: { name: string; token: string },
 ): string {
   return page(
-    "New API key · pp",
+    "New API key · pushover",
     `${header(session, csrfToken, "cli")}<main class="screen cli-screen page-shell">
       <p class="eyebrow">/CLI/AUTH/NEW</p>
       <h1>Your new API key</h1>
@@ -155,27 +155,27 @@ export function renderApiKey(
 
 export function renderDraftBridge(action: string, ticket: string, nonce: string): string {
   return page(
-    "Opening draft · pp",
+    "Opening draft · pushover",
     `${publicHeader()}<main class="center page-shell"><div class="center-content"><p class="eyebrow">PRIVATE DRAFT</p><h1>Opening draft.</h1><p class="lede">Continue to the authenticated document.</p><form id="draft-bridge" method="post" action="${escapeHtml(action)}"><input type="hidden" name="ticket" value="${escapeHtml(ticket)}"><button type="submit">Open draft</button></form><script nonce="${escapeHtml(nonce)}">document.getElementById("draft-bridge").requestSubmit()</script></div></main>`,
   );
 }
 
 export function renderDraftReady(targetPath: string, nonce: string): string {
   return page(
-    "Opening draft · pp",
+    "Opening draft · pushover",
     `<main class="center page-shell"><div class="center-content"><p class="eyebrow">PRIVATE DRAFT</p><h1>Opening draft.</h1><p class="lede">Authentication complete.</p><p><a href="${escapeHtml(targetPath)}">Open draft</a></p><script nonce="${escapeHtml(nonce)}">window.location.replace(${JSON.stringify(targetPath)})</script></div></main>`,
   );
 }
 
 export function renderNotFound(): string {
   return page(
-    "Not found · pp",
+    "Not found · pushover",
     `${publicHeader()}<main class="center page-shell"><div class="center-content"><p class="eyebrow">404</p><h1>Not found.</h1><p><a href="/">Return home</a></p></div></main>`,
   );
 }
 
 function publicHeader(): string {
-  return `<header class="site-header"><div class="site-header-inner"><a class="brand" href="/" aria-label="pp home">pp</a><nav aria-label="Main navigation"><a href="/drafts">My drafts</a><a href="/cli/auth">CLI setup</a></nav></div></header>`;
+  return `<header class="site-header"><div class="site-header-inner"><a class="brand" href="/" aria-label="pushover home">pushover</a><nav aria-label="Main navigation"><a href="/drafts">My drafts</a><a href="/cli/auth">CLI setup</a></nav></div></header>`;
 }
 
 function header(
@@ -198,7 +198,7 @@ function header(
     : "";
 
   return `<header class="site-header"><div class="site-header-inner">
-    <a class="brand" href="/" aria-label="pp home">pp</a>
+    <a class="brand" href="/" aria-label="pushover home">pushover</a>
     <nav aria-label="Main navigation">
       <a${activeNavigation === "drafts" ? ' class="active" aria-current="page"' : ""} href="/drafts">My drafts</a>
       <a${activeNavigation === "cli" ? ' class="active" aria-current="page"' : ""} href="/cli/auth">CLI setup</a>

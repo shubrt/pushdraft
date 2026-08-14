@@ -18,9 +18,9 @@ export type ParsedCommand =
     }
   | { kind: "list"; apiUrl?: string; json: boolean };
 
-export const ROOT_HELP = `Usage: pp <command> [options]
+export const ROOT_HELP = `Usage: pushover <command> [options]
 
-Publish private HTML drafts to pp.
+Publish private HTML drafts to pushover.
 
 Commands:
   auth set <api-key>  Save an API key
@@ -33,43 +33,43 @@ Options:
   -h, --help          Show help
   -V, --version       Show the CLI version`;
 
-const AUTH_HELP = `Usage: pp auth <command> [options]
+const AUTH_HELP = `Usage: pushover auth <command> [options]
 
 Commands:
   set <api-key>       Save an API key
   login               Paste and verify a key from the browser`;
 
-const AUTH_SET_HELP = `Usage: pp auth set <api-key> [options]
+const AUTH_SET_HELP = `Usage: pushover auth set <api-key> [options]
 
 Options:
-  --api-url <url>     Override the pp API base URL
+  --api-url <url>     Override the pushover API base URL
   -h, --help          Show help`;
 
-const AUTH_LOGIN_HELP = `Usage: pp auth login [options]
+const AUTH_LOGIN_HELP = `Usage: pushover auth login [options]
 
 Options:
-  --api-url <url>     Override the pp API base URL
+  --api-url <url>     Override the pushover API base URL
   -h, --help          Show help`;
 
-const WHOAMI_HELP = `Usage: pp whoami [options]
+const WHOAMI_HELP = `Usage: pushover whoami [options]
 
 Options:
-  --api-url <url>     Override the pp API base URL
+  --api-url <url>     Override the pushover API base URL
   -h, --help          Show help`;
 
-const UPLOAD_HELP = `Usage: pp upload <file> [options]
+const UPLOAD_HELP = `Usage: pushover upload <file> [options]
 
 Options:
   --draft <draft-id>  Update a specific draft
   --new               Always create a new draft
   --description <text> Set a short draft description
-  --api-url <url>     Override the pp API base URL
+  --api-url <url>     Override the pushover API base URL
   -h, --help          Show help`;
 
-const LIST_HELP = `Usage: pp list [options]
+const LIST_HELP = `Usage: pushover list [options]
 
 Options:
-  --api-url <url>     Override the pp API base URL
+  --api-url <url>     Override the pushover API base URL
   --json              Print the draft array as JSON
   -h, --help          Show help`;
 
