@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "vite-plus/test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { uploadPayloadSchema } from "@pushover/contracts";
+import { uploadPayloadSchema } from "@pushdraft/contracts";
 
 import { runCli, type CliOutput } from "../src/app.js";
 import {
@@ -26,14 +26,14 @@ describe("upload", () => {
     const statePaths = createStatePaths(homeDirectory);
     const htmlFile = path.join(homeDirectory, "plan.html");
     fs.writeFileSync(htmlFile, "<!doctype html><title>Private plan</title>");
-    saveCredentials(statePaths, "pushover_secret", "https://pushover.example");
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
 
     const payloads: unknown[] = [];
     const fetchImpl = async (
       _input: string | URL | Request,
       init?: RequestInit,
     ): Promise<Response> => {
-      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer pushover_secret");
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer pushdraft_secret");
       if (typeof init?.body !== "string") throw new Error("Expected a JSON request body.");
       payloads.push(JSON.parse(init.body) as unknown);
       return Response.json({
@@ -43,8 +43,8 @@ describe("upload", () => {
         versionNumber: payloads.length,
         title: "Private plan",
         requestId: null,
-        publicUrl: "https://q43kvvtxix1x.pushover.example",
-        rawUrl: "https://q43kvvtxix1x.pushover.example/raw",
+        publicUrl: "https://q43kvvtxix1x.pushdraft.example",
+        rawUrl: "https://q43kvvtxix1x.pushdraft.example/raw",
         warnings: [],
       });
     };
@@ -61,9 +61,9 @@ describe("upload", () => {
     expect(output.logs).toContain("Uploaded draft");
     expect(output.logs).toContain("Updated draft");
     expect(readDraftState(statePaths).files[htmlFile]?.apiKeyFingerprint).toBe(
-      fingerprintApiKey("pushover_secret"),
+      fingerprintApiKey("pushdraft_secret"),
     );
-    expect(fs.readFileSync(statePaths.drafts, "utf8")).not.toContain("pushover_secret");
+    expect(fs.readFileSync(statePaths.drafts, "utf8")).not.toContain("pushdraft_secret");
   });
 
   test("fails before the request when no API key exists", async () => {
@@ -78,7 +78,7 @@ describe("upload", () => {
       });
       throw new Error("Expected upload to reject missing credentials.");
     } catch (error) {
-      expect(error).toHaveProperty("message", "Missing API key. Run: pushover auth login");
+      expect(error).toHaveProperty("message", "Missing API key. Run: pushdraft auth login");
     }
   });
 
@@ -87,7 +87,7 @@ describe("upload", () => {
     const statePaths = createStatePaths(homeDirectory);
     const htmlFile = path.join(homeDirectory, "plan.html");
     fs.writeFileSync(htmlFile, "<title>Private plan</title>");
-    saveCredentials(statePaths, "first_key", "https://pushover.example");
+    saveCredentials(statePaths, "first_key", "https://pushdraft.example");
 
     const draftIds: Array<string | null | undefined> = [];
     const fetchImpl = async (
@@ -103,8 +103,8 @@ describe("upload", () => {
         versionNumber: 1,
         title: "Private plan",
         requestId: null,
-        publicUrl: "https://q43kvvtxix1x.pushover.example",
-        rawUrl: "https://q43kvvtxix1x.pushover.example/raw",
+        publicUrl: "https://q43kvvtxix1x.pushdraft.example",
+        rawUrl: "https://q43kvvtxix1x.pushdraft.example/raw",
         warnings: [],
       });
     };
@@ -122,7 +122,7 @@ describe("upload", () => {
     const statePaths = createStatePaths(homeDirectory);
     const htmlFile = path.join(homeDirectory, "plan.html");
     fs.writeFileSync(htmlFile, "<title>Private plan</title>");
-    saveCredentials(statePaths, "first_key", "https://pushover.example", "account_1");
+    saveCredentials(statePaths, "first_key", "https://pushdraft.example", "account_1");
 
     const draftIds: Array<string | null | undefined> = [];
     const fetchImpl = uploadRecorder(draftIds);
@@ -140,7 +140,7 @@ describe("upload", () => {
     const statePaths = createStatePaths(homeDirectory);
     const htmlFile = path.join(homeDirectory, "plan.html");
     fs.writeFileSync(htmlFile, "<title>Private plan</title>");
-    saveCredentials(statePaths, "first_key", "https://pushover.example", "account_1");
+    saveCredentials(statePaths, "first_key", "https://pushdraft.example", "account_1");
 
     const draftIds: Array<string | null | undefined> = [];
     const fetchImpl = uploadRecorder(draftIds);
@@ -157,18 +157,18 @@ describe("upload", () => {
     const statePaths = createStatePaths(homeDirectory);
     const htmlFile = path.join(homeDirectory, "plan.html");
     fs.writeFileSync(htmlFile, "<title>Private plan</title>");
-    saveCredentials(statePaths, "pushover_secret", "https://pushover.example");
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
     fs.writeFileSync(
       statePaths.drafts,
       `${JSON.stringify({
         files: {
           [htmlFile]: {
             draftId: "legacy_draft",
-            publicUrl: "https://legacy.pushover.example",
-            rawUrl: "https://legacy.pushover.example/raw",
+            publicUrl: "https://legacy.pushdraft.example",
+            rawUrl: "https://legacy.pushdraft.example/raw",
             latestVersionNumber: 3,
             updatedAt: "2026-08-13T12:00:00.000Z",
-            apiUrl: "https://pushover.example",
+            apiUrl: "https://pushdraft.example",
           },
         },
       })}\n`,
@@ -188,8 +188,8 @@ describe("upload", () => {
         versionNumber: 1,
         title: "Private plan",
         requestId: null,
-        publicUrl: "https://q43kvvtxix1x.pushover.example",
-        rawUrl: "https://q43kvvtxix1x.pushover.example/raw",
+        publicUrl: "https://q43kvvtxix1x.pushdraft.example",
+        rawUrl: "https://q43kvvtxix1x.pushdraft.example/raw",
         warnings: [],
       });
     };
@@ -210,7 +210,7 @@ describe("upload", () => {
     const htmlFile = path.join(homeDirectory, "large.html");
     const html = `<title>Large plan</title>${"x".repeat(512 * 1_024)}`;
     fs.writeFileSync(htmlFile, html);
-    saveCredentials(statePaths, "pushover_secret", "https://pushover.example");
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
 
     let uploadedLength = 0;
     const fetchImpl = async (
@@ -226,8 +226,8 @@ describe("upload", () => {
         versionNumber: 1,
         title: "Large plan",
         requestId: null,
-        publicUrl: "https://q43kvvtxix1x.pushover.example",
-        rawUrl: "https://q43kvvtxix1x.pushover.example/raw",
+        publicUrl: "https://q43kvvtxix1x.pushdraft.example",
+        rawUrl: "https://q43kvvtxix1x.pushdraft.example/raw",
         warnings: [],
       });
     };
@@ -244,7 +244,7 @@ describe("upload", () => {
 });
 
 function makeTemporaryDirectory(): string {
-  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pushover-cli-test-"));
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "pushdraft-cli-test-"));
   temporaryDirectories.push(directory);
   return directory;
 }
@@ -273,8 +273,8 @@ function uploadRecorder(
       versionNumber: draftIds.length,
       title: "Private plan",
       requestId: null,
-      publicUrl: "https://q43kvvtxix1x.pushover.example",
-      rawUrl: "https://q43kvvtxix1x.pushover.example/raw",
+      publicUrl: "https://q43kvvtxix1x.pushdraft.example",
+      rawUrl: "https://q43kvvtxix1x.pushdraft.example/raw",
       warnings: [],
     });
   };

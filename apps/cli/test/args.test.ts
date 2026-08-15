@@ -3,6 +3,13 @@ import { describe, expect, test } from "vite-plus/test";
 import { parseCliArgs } from "../src/args.js";
 
 describe("parseCliArgs", () => {
+  test("uses the published command name in help", () => {
+    expect(parseCliArgs(["--help"])).toMatchObject({
+      kind: "help",
+      text: expect.stringContaining("Usage: pushdraft <command>"),
+    });
+  });
+
   test("parses upload options", () => {
     expect(
       parseCliArgs([
@@ -13,7 +20,7 @@ describe("parseCliArgs", () => {
         "--description",
         "Launch plan",
         "--api-url",
-        "https://pushover.example",
+        "https://pushdraft.example",
       ]),
     ).toEqual({
       kind: "upload",
@@ -21,7 +28,7 @@ describe("parseCliArgs", () => {
       draftId: "draft_123",
       forceNew: false,
       description: "Launch plan",
-      apiUrl: "https://pushover.example",
+      apiUrl: "https://pushdraft.example",
     });
   });
 
@@ -34,9 +41,9 @@ describe("parseCliArgs", () => {
   });
 
   test("parses auth and list commands", () => {
-    expect(parseCliArgs(["auth", "set", "pushover_secret"])).toMatchObject({
+    expect(parseCliArgs(["auth", "set", "pushdraft_secret"])).toMatchObject({
       kind: "auth-set",
-      apiKey: "pushover_secret",
+      apiKey: "pushdraft_secret",
     });
     expect(parseCliArgs(["list", "--json"])).toMatchObject({ kind: "list", json: true });
   });

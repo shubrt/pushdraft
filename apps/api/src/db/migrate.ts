@@ -5,7 +5,7 @@ const database = createDatabase(loadConfig());
 
 try {
   await database.migrate();
-  console.log("pushover database schema is current.");
+  console.log("pushdraft database schema is current.");
 } finally {
   await database.close();
 }

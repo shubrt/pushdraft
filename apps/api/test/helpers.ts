@@ -8,7 +8,7 @@ export const TEST_DRAFT_ID = "abcdefghijkl";
 export const TEST_CONFIG: AppConfig = {
   port: 3003,
   databaseUrl: "postgres://unused",
-  publicUrl: new URL("https://pushover.example"),
+  publicUrl: new URL("https://pushdraft.example"),
   sessionSecret: "test-session-secret-with-at-least-32-bytes",
   shooBaseUrl: new URL("https://shoo.dev"),
   maxHtmlBytes: 512 * 1024,

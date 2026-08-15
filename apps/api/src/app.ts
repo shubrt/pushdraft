@@ -1,4 +1,4 @@
-import { uploadPayloadSchema, type UploadPayload } from "@pushover/contracts";
+import { uploadPayloadSchema, type UploadPayload } from "@pushdraft/contracts";
 import { Elysia } from "elysia";
 
 import {
@@ -551,7 +551,7 @@ function parseDraftContentRoute(pathname: string): { raw: boolean; versionNumber
 
 function bearerError(): Response {
   return json({ ok: false, error: "Missing or invalid API key." }, 401, {
-    "www-authenticate": 'Bearer realm="pushover"',
+    "www-authenticate": 'Bearer realm="pushdraft"',
   });
 }
 

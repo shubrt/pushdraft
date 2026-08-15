@@ -2,18 +2,18 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: pushover
-      POSTGRES_PASSWORD: pushover
-      POSTGRES_USER: pushover
+      POSTGRES_DB: pushdraft
+      POSTGRES_PASSWORD: pushdraft
+      POSTGRES_USER: pushdraft
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pushover -d pushover"]
+      test: ["CMD-SHELL", "pg_isready -U pushdraft -d pushdraft"]
       interval: 2s
       timeout: 2s
       retries: 15
     volumes:
-      - pushover-postgres:/var/lib/postgresql/data
+      - pushdraft-postgres:/var/lib/postgresql/data
 
 volumes:
-  pushover-postgres:
+  pushdraft-postgres:

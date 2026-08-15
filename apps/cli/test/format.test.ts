@@ -26,7 +26,7 @@ test("formatDrafts includes repository, version, URL, and description", () => {
           title: "Private postplan",
           description: "Implementation plan",
           repoOrg: "shubrt",
-          repoName: "pushover",
+          repoName: "pushdraft",
           repoHost: "github.com",
           latestVersionNumber: 2,
           versionCount: 2,
@@ -34,11 +34,11 @@ test("formatDrafts includes repository, version, URL, and description", () => {
           updatedAt: "2026-08-13T11:00:00.000Z",
           latestVersionAt: "2026-08-13T11:00:00.000Z",
           disabled: false,
-          publicUrl: "https://draft_123.pushover.example",
-          rawUrl: "https://draft_123.pushover.example/raw",
+          publicUrl: "https://draft_123.pushdraft.example",
+          rawUrl: "https://draft_123.pushdraft.example/raw",
         },
       ],
       now,
     ),
-  ).toContain("shubrt/pushover · v2 · 2 versions · updated 1 hour ago");
+  ).toContain("shubrt/pushdraft · v2 · 2 versions · updated 1 hour ago");
 });

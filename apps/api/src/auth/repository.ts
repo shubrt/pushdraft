@@ -92,7 +92,7 @@ export async function createApiKey(
   name: string,
 ): Promise<{ id: string; name: string; token: string }> {
   const id = newInternalId();
-  const token = `pushover_${randomToken(32)}`;
+  const token = `pushdraft_${randomToken(32)}`;
   await database.query(
     "INSERT INTO api_keys (id, account_id, name, key_hash) VALUES ($1, $2, $3, $4)",
     [id, accountId, name, sha256(token)],
@@ -169,7 +169,7 @@ export async function findOrCreateAccountForIdentity(
     );
 
     const accountId = existing.rows[0]?.account_id ?? `acct_${newInternalId()}`;
-    const accountName = profile.displayName ?? profile.email ?? `pushover ${subject.slice(-6)}`;
+    const accountName = profile.displayName ?? profile.email ?? `pushdraft ${subject.slice(-6)}`;
     if (existing.rowCount === 0) {
       await client.query("INSERT INTO accounts (id, name) VALUES ($1, $2)", [
         accountId,
