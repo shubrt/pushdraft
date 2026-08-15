@@ -1,7 +1,7 @@
 {
   "name": "pushdraft",
   "version": "0.0.1",
-  "description": "Command-line client for private HTML draft publishing.",
+  "description": "CLI for the open-source postplan.dev alternative with authentication-protected HTML drafts.",
   "keywords": [
     "cli",
     "html",

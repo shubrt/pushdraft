@@ -1,6 +1,8 @@
 # pushdraft
 
-Publish private HTML drafts to [pushdraft.dev](https://pushdraft.dev).
+The CLI for [Pushdraft](https://pushdraft.dev), the open-source alternative to
+[postplan.dev](https://postplan.dev). Publish versioned HTML drafts and protect
+them with authentication. The server, API and CLI are all open source.
 
 ## Run without installing
 

@@ -1,6 +1,9 @@
 # pushdraft
 
-Private, versioned HTML draft publishing for people and agents.
+[Pushdraft](https://pushdraft.dev) is the open-source alternative to
+[postplan.dev](https://postplan.dev) for publishing versioned HTML drafts. The
+entire server, API and CLI codebase is public, and drafts can be protected with
+authentication.
 
 Production runs at `https://pushdraft.dev`, with drafts on wildcard subdomains.
 
@@ -67,3 +70,7 @@ tag-based release flow.
 The API keeps every browser page and draft private. Browser access uses a Shoo
 session plus a one-time subdomain handshake. Agents use a Bearer API key for
 listing, uploading and fetching draft HTML.
+
+## License
+
+Pushdraft is available under the [MIT License](LICENSE).
