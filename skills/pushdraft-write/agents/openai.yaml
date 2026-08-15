@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pushdraft Write"
+  short_description: "Write and publish HTML drafts with Pushdraft"
+  default_prompt: "Use $pushdraft-write to publish this plan as a readable HTML draft."
