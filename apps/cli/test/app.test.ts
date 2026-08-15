@@ -78,7 +78,7 @@ describe("upload", () => {
       });
       throw new Error("Expected upload to reject missing credentials.");
     } catch (error) {
-      expect(error).toHaveProperty("message", "Missing API key. Run: pushover auth login");
+      expect(error).toHaveProperty("message", "Missing API key. Run: pushdraft auth login");
     }
   });
 

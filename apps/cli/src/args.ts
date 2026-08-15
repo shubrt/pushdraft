@@ -18,7 +18,7 @@ export type ParsedCommand =
     }
   | { kind: "list"; apiUrl?: string; json: boolean };
 
-export const ROOT_HELP = `Usage: pushover <command> [options]
+export const ROOT_HELP = `Usage: pushdraft <command> [options]
 
 Publish private HTML drafts to pushover.
 
@@ -33,31 +33,31 @@ Options:
   -h, --help          Show help
   -V, --version       Show the CLI version`;
 
-const AUTH_HELP = `Usage: pushover auth <command> [options]
+const AUTH_HELP = `Usage: pushdraft auth <command> [options]
 
 Commands:
   set <api-key>       Save an API key
   login               Paste and verify a key from the browser`;
 
-const AUTH_SET_HELP = `Usage: pushover auth set <api-key> [options]
+const AUTH_SET_HELP = `Usage: pushdraft auth set <api-key> [options]
 
 Options:
   --api-url <url>     Override the pushover API base URL
   -h, --help          Show help`;
 
-const AUTH_LOGIN_HELP = `Usage: pushover auth login [options]
+const AUTH_LOGIN_HELP = `Usage: pushdraft auth login [options]
 
 Options:
   --api-url <url>     Override the pushover API base URL
   -h, --help          Show help`;
 
-const WHOAMI_HELP = `Usage: pushover whoami [options]
+const WHOAMI_HELP = `Usage: pushdraft whoami [options]
 
 Options:
   --api-url <url>     Override the pushover API base URL
   -h, --help          Show help`;
 
-const UPLOAD_HELP = `Usage: pushover upload <file> [options]
+const UPLOAD_HELP = `Usage: pushdraft upload <file> [options]
 
 Options:
   --draft <draft-id>  Update a specific draft
@@ -66,7 +66,7 @@ Options:
   --api-url <url>     Override the pushover API base URL
   -h, --help          Show help`;
 
-const LIST_HELP = `Usage: pushover list [options]
+const LIST_HELP = `Usage: pushdraft list [options]
 
 Options:
   --api-url <url>     Override the pushover API base URL

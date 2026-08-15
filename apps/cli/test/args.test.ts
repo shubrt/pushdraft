@@ -3,6 +3,13 @@ import { describe, expect, test } from "vite-plus/test";
 import { parseCliArgs } from "../src/args.js";
 
 describe("parseCliArgs", () => {
+  test("uses the published command name in help", () => {
+    expect(parseCliArgs(["--help"])).toMatchObject({
+      kind: "help",
+      text: expect.stringContaining("Usage: pushdraft <command>"),
+    });
+  });
+
   test("parses upload options", () => {
     expect(
       parseCliArgs([

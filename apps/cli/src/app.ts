@@ -257,6 +257,6 @@ function authenticatedHeaders(apiKey: string, version: string): Record<string, s
 }
 
 function requireApiKey(apiKey: string | undefined): string {
-  if (apiKey === undefined) throw new CliError("Missing API key. Run: pushover auth login");
+  if (apiKey === undefined) throw new CliError("Missing API key. Run: pushdraft auth login");
   return apiKey;
 }

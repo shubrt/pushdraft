@@ -11,7 +11,7 @@ export function renderHome(): string {
       <p class="eyebrow">PRIVATE DRAFT PUBLISHING</p>
       <h1>Private drafts<br>for agents.</h1>
       <p class="lede">Authenticated static HTML publishing for humans and agents.</p>
-      <pre class="command"><span>$</span> npx @pushover/cli upload ./plan.html</pre>
+      <pre class="command"><span>$</span> npx pushdraft upload ./plan.html</pre>
       <div class="landing-links"><a href="/drafts">My drafts</a><a href="/cli/auth">CLI setup</a></div>
     </main>`,
   );
@@ -62,7 +62,7 @@ export function renderDrafts(
 
   return page(
     "My drafts · pushover",
-    `${header(session, csrfToken, "drafts")}<main class="screen page-shell"><h1 class="screen-title">My drafts</h1>${body || '<p class="empty-state">No drafts yet. Upload one with <code>pushover upload ./plan.html</code>.</p>'}</main>`,
+    `${header(session, csrfToken, "drafts")}<main class="screen page-shell"><h1 class="screen-title">My drafts</h1>${body || '<p class="empty-state">No drafts yet. Upload one with <code>pushdraft upload ./plan.html</code>.</p>'}</main>`,
   );
 }
 
@@ -122,7 +122,7 @@ export function renderCliAuth(
     `${header(session, csrfToken, "cli")}<main class="screen cli-screen page-shell">
       <p class="eyebrow">/CLI/AUTH</p>
       <h1>Connect your CLI</h1>
-      <p class="lede">Generate a key, then paste it into <code>pushover auth login</code>.</p>
+      <p class="lede">Generate a key, then paste it into <code>pushdraft auth login</code>.</p>
       <form class="primary-form" method="post" action="/cli/auth/keys">
         <input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">
         <button type="submit">Generate a new API key</button>

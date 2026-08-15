@@ -93,7 +93,7 @@ export function resolveAuth(options: ResolveAuthOptions): Auth {
       : undefined;
 
   if ((options.requireApiKey ?? true) && apiKey === undefined) {
-    throw new CliError("Missing API key. Run: pushover auth login");
+    throw new CliError("Missing API key. Run: pushdraft auth login");
   }
 
   return accountId === undefined ? { apiUrl, apiKey } : { apiUrl, apiKey, accountId };
