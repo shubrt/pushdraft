@@ -60,6 +60,10 @@ vp test run     # single pass
 vp test watch   # watch mode
 ```
 
+CLI releases use npm trusted publishing from GitHub Actions. See
+[`docs/releasing-cli.md`](docs/releasing-cli.md) for the first publish and the
+tag-based release flow.
+
 The API keeps every browser page and draft private. Browser access uses a Shoo
 session plus a one-time subdomain handshake. Agents use a Bearer API key for
 listing, uploading and fetching draft HTML.
