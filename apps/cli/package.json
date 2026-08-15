@@ -1,24 +1,23 @@
 {
   "name": "pushdraft",
   "version": "0.1.0",
-  "description": "Command-line client for private pushover drafts.",
+  "description": "Command-line client for private HTML draft publishing.",
   "keywords": [
     "cli",
     "html",
     "preview",
     "publishing"
   ],
-  "homepage": "https://pushover.dev",
-  "bugs": "https://github.com/shubrt/pushover/issues",
+  "homepage": "https://pushdraft.dev",
+  "bugs": "https://github.com/shubrt/pushdraft/issues",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/shubrt/pushover.git",
+    "url": "git+https://github.com/shubrt/pushdraft.git",
     "directory": "apps/cli"
   },
   "bin": {
-    "pushdraft": "./dist/cli.js",
-    "pushover": "./dist/cli.js"
+    "pushdraft": "./dist/cli.js"
   },
   "files": [
     "dist/"
@@ -33,7 +32,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@pushover/contracts": "workspace:*",
+    "@pushdraft/contracts": "workspace:*",
     "@tool/tsconfig": "workspace:*",
     "@types/bun": "^1.3.4",
     "typescript": "catalog:",

@@ -5,7 +5,7 @@ import {
   type DraftSummary,
   type MeResponse,
   type UploadResponse,
-} from "@pushover/contracts";
+} from "@pushdraft/contracts";
 
 export type { DraftSummary, MeResponse, UploadResponse };
 

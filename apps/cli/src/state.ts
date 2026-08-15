@@ -6,7 +6,7 @@ import path from "node:path";
 import { isJsonObject } from "./api-types.js";
 import { CliError } from "./errors.js";
 
-export const DEFAULT_API_URL = "https://pushover.dev";
+export const DEFAULT_API_URL = "https://pushdraft.dev";
 
 export interface StatePaths {
   directory: string;
@@ -55,7 +55,7 @@ interface ResolveAuthOptions {
 }
 
 export function createStatePaths(homeDirectory = os.homedir()): StatePaths {
-  const directory = path.join(homeDirectory, ".pushover");
+  const directory = path.join(homeDirectory, ".pushdraft");
   return {
     directory,
     config: path.join(directory, "config.json"),

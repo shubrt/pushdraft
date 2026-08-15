@@ -20,7 +20,7 @@ export type ParsedCommand =
 
 export const ROOT_HELP = `Usage: pushdraft <command> [options]
 
-Publish private HTML drafts to pushover.
+Publish private HTML drafts to pushdraft.
 
 Commands:
   auth set <api-key>  Save an API key
@@ -42,19 +42,19 @@ Commands:
 const AUTH_SET_HELP = `Usage: pushdraft auth set <api-key> [options]
 
 Options:
-  --api-url <url>     Override the pushover API base URL
+  --api-url <url>     Override the pushdraft API base URL
   -h, --help          Show help`;
 
 const AUTH_LOGIN_HELP = `Usage: pushdraft auth login [options]
 
 Options:
-  --api-url <url>     Override the pushover API base URL
+  --api-url <url>     Override the pushdraft API base URL
   -h, --help          Show help`;
 
 const WHOAMI_HELP = `Usage: pushdraft whoami [options]
 
 Options:
-  --api-url <url>     Override the pushover API base URL
+  --api-url <url>     Override the pushdraft API base URL
   -h, --help          Show help`;
 
 const UPLOAD_HELP = `Usage: pushdraft upload <file> [options]
@@ -63,13 +63,13 @@ Options:
   --draft <draft-id>  Update a specific draft
   --new               Always create a new draft
   --description <text> Set a short draft description
-  --api-url <url>     Override the pushover API base URL
+  --api-url <url>     Override the pushdraft API base URL
   -h, --help          Show help`;
 
 const LIST_HELP = `Usage: pushdraft list [options]
 
 Options:
-  --api-url <url>     Override the pushover API base URL
+  --api-url <url>     Override the pushdraft API base URL
   --json              Print the draft array as JSON
   -h, --help          Show help`;
 

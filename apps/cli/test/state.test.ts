@@ -11,7 +11,7 @@ import {
 
 describe("resolveAuth", () => {
   test("defaults to the production domain", () => {
-    expect(DEFAULT_API_URL).toBe("https://pushover.dev");
+    expect(DEFAULT_API_URL).toBe("https://pushdraft.dev");
   });
 
   test("uses overrides, environment, and saved values in order", () => {
@@ -54,16 +54,16 @@ describe("resolveAuth", () => {
 });
 
 describe("draft mappings", () => {
-  const fingerprint = fingerprintApiKey("pushover_secret");
+  const fingerprint = fingerprintApiKey("pushdraft_secret");
   const state: DraftState = {
     files: {
       "/repo/plan.html": {
         draftId: "draft_123",
-        publicUrl: "https://draft_123.pushover.example",
-        rawUrl: "https://draft_123.pushover.example/raw",
+        publicUrl: "https://draft_123.pushdraft.example",
+        rawUrl: "https://draft_123.pushdraft.example/raw",
         latestVersionNumber: 2,
         updatedAt: "2026-08-13T12:00:00.000Z",
-        apiUrl: "https://pushover.example",
+        apiUrl: "https://pushdraft.example",
         apiKeyFingerprint: fingerprint,
         accountId: "account_1",
       },
@@ -71,7 +71,7 @@ describe("draft mappings", () => {
   };
 
   test("reuses a mapping only for the same API and key", () => {
-    expect(mappedDraftId(state, "/repo/plan.html", "https://pushover.example/", fingerprint)).toBe(
+    expect(mappedDraftId(state, "/repo/plan.html", "https://pushdraft.example/", fingerprint)).toBe(
       "draft_123",
     );
     expect(
@@ -81,7 +81,7 @@ describe("draft mappings", () => {
       mappedDraftId(
         state,
         "/repo/plan.html",
-        "https://pushover.example",
+        "https://pushdraft.example",
         fingerprintApiKey("another_key"),
       ),
     ).toBeUndefined();
@@ -95,7 +95,7 @@ describe("draft mappings", () => {
     };
 
     expect(
-      mappedDraftId(legacyState, "/repo/plan.html", "https://pushover.example", fingerprint),
+      mappedDraftId(legacyState, "/repo/plan.html", "https://pushdraft.example", fingerprint),
     ).toBeUndefined();
   });
 
@@ -106,7 +106,7 @@ describe("draft mappings", () => {
       mappedDraftId(
         state,
         "/repo/plan.html",
-        "https://pushover.example",
+        "https://pushdraft.example",
         rotatedFingerprint,
         "account_1",
       ),
@@ -115,7 +115,7 @@ describe("draft mappings", () => {
       mappedDraftId(
         state,
         "/repo/plan.html",
-        "https://pushover.example",
+        "https://pushdraft.example",
         rotatedFingerprint,
         "account_2",
       ),
@@ -124,16 +124,16 @@ describe("draft mappings", () => {
 });
 
 test("fingerprintApiKey is stable and does not expose the key", () => {
-  const fingerprint = fingerprintApiKey("pushover_secret");
+  const fingerprint = fingerprintApiKey("pushdraft_secret");
   expect(fingerprint).toHaveLength(64);
-  expect(fingerprint).toBe(fingerprintApiKey("pushover_secret"));
-  expect(fingerprint).not.toContain("pushover_secret");
+  expect(fingerprint).toBe(fingerprintApiKey("pushdraft_secret"));
+  expect(fingerprint).not.toContain("pushdraft_secret");
 });
 
 test("normalizeApiUrl rejects non-http URLs and credentials", () => {
-  expect(normalizeApiUrl("https://pushover.example/")).toBe("https://pushover.example");
-  expect(() => normalizeApiUrl("file:///tmp/pushover")).toThrow("http or https");
-  expect(() => normalizeApiUrl("https://user:secret@pushover.example")).toThrow(
+  expect(normalizeApiUrl("https://pushdraft.example/")).toBe("https://pushdraft.example");
+  expect(() => normalizeApiUrl("file:///tmp/pushdraft")).toThrow("http or https");
+  expect(() => normalizeApiUrl("https://user:secret@pushdraft.example")).toThrow(
     "cannot contain credentials",
   );
 });

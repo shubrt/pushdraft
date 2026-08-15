@@ -2,7 +2,7 @@ import { once } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import * as readline from "node:readline/promises";
-import type { UploadPayloadInput } from "@pushover/contracts";
+import type { UploadPayloadInput } from "@pushdraft/contracts";
 
 import {
   apiErrorMessage,
@@ -58,7 +58,7 @@ export async function runCli(argv: string[], options: RunCliOptions): Promise<vo
       return;
     case "auth-set":
       saveCredentials(statePaths, command.apiKey, command.apiUrl);
-      output.log("pushover credentials saved.");
+      output.log("pushdraft credentials saved.");
       return;
     case "auth-login":
       await login(command.apiUrl, statePaths, fetchImpl, output, options.version);
@@ -252,7 +252,7 @@ function authenticatedHeaders(apiKey: string, version: string): Record<string, s
   return {
     Accept: "application/json",
     Authorization: `Bearer ${apiKey}`,
-    "User-Agent": `pushover/${version}`,
+    "User-Agent": `pushdraft/${version}`,
   };
 }
 

@@ -1,6 +1,6 @@
 # pushdraft
 
-Publish private HTML drafts to [pushover.dev](https://pushover.dev).
+Publish private HTML drafts to [pushdraft.dev](https://pushdraft.dev).
 
 ## Run without installing
 
@@ -27,5 +27,3 @@ Run `pushdraft --help` for all options.
 npm install --global pushdraft
 pushdraft --help
 ```
-
-The global package also installs `pushover` as an alias.

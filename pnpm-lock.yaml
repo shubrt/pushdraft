@@ -41,7 +41,7 @@ importers:
 
   apps/api:
     dependencies:
-      '@pushover/contracts':
+      '@pushdraft/contracts':
         specifier: workspace:*
         version: link:../../libs/contracts
       elysia:
@@ -78,7 +78,7 @@ importers:
 
   apps/cli:
     devDependencies:
-      '@pushover/contracts':
+      '@pushdraft/contracts':
         specifier: workspace:*
         version: link:../../libs/contracts
       '@tool/tsconfig':

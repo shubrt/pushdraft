@@ -1,8 +1,8 @@
-# pushover
+# pushdraft
 
 Private, versioned HTML draft publishing for people and agents.
 
-Production runs at `https://pushover.dev`, with drafts on wildcard subdomains.
+Production runs at `https://pushdraft.dev`, with drafts on wildcard subdomains.
 
 ## Packages
 
@@ -32,7 +32,7 @@ vp i
 cp .env.example .env
 docker compose up -d postgres
 vp run db:deploy
-vp run -F @pushover/api dev
+vp run -F @pushdraft/api dev
 ```
 
 The apex runs at `http://localhost:3003`. Drafts use

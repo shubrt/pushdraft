@@ -17,7 +17,7 @@ function readPackageVersion(): string {
     fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"),
   );
   if (!isJsonObject(packageJson) || typeof packageJson.version !== "string") {
-    throw new Error("Could not read the pushover CLI version.");
+    throw new Error("Could not read the pushdraft CLI version.");
   }
   return packageJson.version;
 }
