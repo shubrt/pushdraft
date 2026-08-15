@@ -25,6 +25,24 @@ bunx pushdraft upload ./plan.html
 
 Run `npx pushdraft --help` for all commands and options.
 
+## Agent skills
+
+This repository includes portable skills for agents that support the
+[Agent Skills](https://agentskills.io) format:
+
+- `pushdraft-write` creates and publishes self-contained HTML documents.
+- `pushdraft-read` reads an existing Pushdraft URL through its raw endpoint.
+
+Install them from the repository with:
+
+```bash
+npx skills add shubrt/pushdraft
+```
+
+The canonical files live in [`skills`](skills). To install a skill manually,
+copy its directory to `~/.claude/skills/` for Claude Code or
+`~/.codex/skills/` for Codex.
+
 ## Local setup
 
 Requirements: [Vite+](https://viteplus.dev) (`vp`), Node 22+, Bun 1.3.10+ and Docker.

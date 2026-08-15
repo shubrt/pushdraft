@@ -1,0 +1,4 @@
+interface:
+  display_name: "Pushdraft Read"
+  short_description: "Read an existing Pushdraft HTML draft"
+  default_prompt: "Use $pushdraft-read to read this Pushdraft URL and summarize it."
