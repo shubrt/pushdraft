@@ -66,6 +66,110 @@ describe("upload", () => {
     expect(fs.readFileSync(statePaths.drafts, "utf8")).not.toContain("pushdraft_secret");
   });
 
+  test("sends named references with HTML uploads", async () => {
+    const homeDirectory = makeTemporaryDirectory();
+    const statePaths = createStatePaths(homeDirectory);
+    const htmlFile = path.join(homeDirectory, "gallery.html");
+    fs.writeFileSync(htmlFile, '<img src="./refs/hero-image">');
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
+
+    let submittedPayload: unknown;
+    const fetchImpl = async (
+      _input: string | URL | Request,
+      init?: RequestInit,
+    ): Promise<Response> => {
+      if (typeof init?.body !== "string") throw new Error("Expected a JSON request body.");
+      submittedPayload = JSON.parse(init.body) as unknown;
+      return uploadResponse();
+    };
+
+    await runCli(["upload", htmlFile, "--ref", "hero-image=q43kvvtxix1x"], {
+      version: "0.1.0",
+      statePaths,
+      fetchImpl,
+      output: captureOutput(),
+    });
+
+    const payload = uploadPayloadSchema.parse(submittedPayload);
+    expect(payload.html).toContain("./refs/hero-image");
+    expect(payload.references).toEqual({ "hero-image": "q43kvvtxix1x" });
+  });
+
+  test.each([
+    ["png", "image/png"],
+    ["jpg", "image/jpeg"],
+    ["jpeg", "image/jpeg"],
+    ["webp", "image/webp"],
+  ] as const)("base64-encodes .%s files as %s", async (extension, mediaType) => {
+    const homeDirectory = makeTemporaryDirectory();
+    const statePaths = createStatePaths(homeDirectory);
+    const imageBytes = Buffer.from([0, 1, 2, 253, 254, 255]);
+    const imageFile = path.join(homeDirectory, `image.${extension}`);
+    fs.writeFileSync(imageFile, imageBytes);
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
+
+    let submittedPayload: unknown;
+    const output = captureOutput();
+    await runCli(["upload", imageFile, "--new"], {
+      version: "0.1.0",
+      statePaths,
+      fetchImpl: async (_input, init) => {
+        if (typeof init?.body !== "string") throw new Error("Expected a JSON request body.");
+        submittedPayload = JSON.parse(init.body) as unknown;
+        return uploadResponse();
+      },
+      output,
+    });
+
+    const payload = uploadPayloadSchema.parse(submittedPayload);
+    if (payload.image === undefined) throw new Error("Expected an image payload.");
+    expect(payload.metadata?.fileSha256).toHaveLength(64);
+    expect(payload.image).toEqual({ mediaType, base64: imageBytes.toString("base64") });
+    expect(output.logs).toContain("Raw image: https://q43kvvtxix1x.pushdraft.example/raw");
+  });
+
+  test("rejects references on image uploads before the request", async () => {
+    const homeDirectory = makeTemporaryDirectory();
+    const statePaths = createStatePaths(homeDirectory);
+    const imageFile = path.join(homeDirectory, "hero.png");
+    fs.writeFileSync(imageFile, Buffer.from("image"));
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
+
+    await expect(
+      runCli(["upload", imageFile, "--ref", "hero=q43kvvtxix1x"], {
+        version: "0.1.0",
+        statePaths,
+        fetchImpl: async () => {
+          throw new Error("The CLI should reject the upload before making a request.");
+        },
+        output: captureOutput(),
+      }),
+    ).rejects.toThrow("References can only be attached to HTML uploads.");
+  });
+
+  test("preserves HTML uploads that use another filename extension", async () => {
+    const homeDirectory = makeTemporaryDirectory();
+    const statePaths = createStatePaths(homeDirectory);
+    const htmlFile = path.join(homeDirectory, "plan.htm");
+    fs.writeFileSync(htmlFile, "<!doctype html><title>Legacy filename</title>");
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
+
+    let submittedPayload: unknown;
+    await runCli(["upload", htmlFile], {
+      version: "0.1.0",
+      statePaths,
+      fetchImpl: async (_input, init) => {
+        if (typeof init?.body !== "string") throw new Error("Expected a JSON request body.");
+        submittedPayload = JSON.parse(init.body) as unknown;
+        return uploadResponse();
+      },
+      output: captureOutput(),
+    });
+
+    const payload = uploadPayloadSchema.parse(submittedPayload);
+    expect(payload.html).toContain("Legacy filename");
+  });
+
   test("fails before the request when no API key exists", async () => {
     const homeDirectory = makeTemporaryDirectory();
     const htmlFile = path.join(homeDirectory, "plan.html");
@@ -218,7 +322,9 @@ describe("upload", () => {
       init?: RequestInit,
     ): Promise<Response> => {
       if (typeof init?.body !== "string") throw new Error("Expected a JSON request body.");
-      uploadedLength = uploadPayloadSchema.parse(JSON.parse(init.body) as unknown).html.length;
+      const payload = uploadPayloadSchema.parse(JSON.parse(init.body) as unknown);
+      if (payload.html === undefined) throw new Error("Expected an HTML payload.");
+      uploadedLength = payload.html.length;
       return Response.json({
         ok: true,
         draftId: "q43kvvtxix1x",
@@ -278,4 +384,18 @@ function uploadRecorder(
       warnings: [],
     });
   };
+}
+
+function uploadResponse(versionNumber = 1): Response {
+  return Response.json({
+    ok: true,
+    draftId: "q43kvvtxix1x",
+    versionId: `version_${versionNumber}`,
+    versionNumber,
+    title: "Draft",
+    requestId: null,
+    publicUrl: "https://q43kvvtxix1x.pushdraft.example",
+    rawUrl: "https://q43kvvtxix1x.pushdraft.example/raw",
+    warnings: [],
+  });
 }

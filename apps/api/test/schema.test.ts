@@ -9,6 +9,7 @@ describe("database schema", () => {
     const files = tableSection(schema, "files");
     const versions = tableSection(schema, "draft_versions");
     const drafts = tableSection(schema, "drafts");
+    const references = tableSection(schema, "draft_version_references");
     const tickets = tableSection(schema, "draft_access_tickets");
 
     expect(files).toMatch(/media_type\s+TEXT\s+NOT NULL/i);
@@ -22,6 +23,12 @@ describe("database schema", () => {
       /inline_bytes|object_key|storage_backend|\bhtml\s+(?:TEXT|BYTEA)/i,
     );
     expect(drafts).not.toMatch(/inline_bytes|object_key|storage_backend|\bhtml\s+(?:TEXT|BYTEA)/i);
+    expect(references).toMatch(
+      /source_version_id\s+TEXT\s+NOT NULL\s+REFERENCES\s+draft_versions\s*\(id\)/i,
+    );
+    expect(references).toMatch(/target_draft_id\s+TEXT\s+NOT NULL\s+REFERENCES\s+drafts\s*\(id\)/i);
+    expect(references).toMatch(/PRIMARY KEY\s*\(source_version_id,\s*name\)/i);
+    expect(references).not.toMatch(/target_version_id/i);
     expect(tickets).toMatch(/version_number\s+INTEGER/i);
     expect(tickets).not.toMatch(/^\s*target_path\s+TEXT/im);
   });

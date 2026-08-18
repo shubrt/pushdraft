@@ -125,12 +125,95 @@ describe("draft authentication", () => {
     expect(response.headers.get("x-postplan-draft-version")).toBe("4");
     expect(response.headers.get("cache-control")).toContain("no-store");
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("content-security-policy")).toContain("img-src 'self'");
+  });
+
+  test.each([
+    ["current parent version", "/refs/hero", null],
+    ["chosen parent version", "/v/7/refs/hero", 7],
+  ])("serves a live image reference for the %s", async (_label, path, versionNumber) => {
+    const stored = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const database = createFakeDatabase((call) => {
+      const sql = compactSql(call.text);
+      if (sql.includes("UPDATE api_keys AS k")) {
+        return call.values[0] === sha256(OWNER_TOKEN)
+          ? { rows: [apiKeyRow("acct_owner")] }
+          : { rows: [] };
+      }
+      if (sql.includes("FROM drafts AS source")) {
+        expect(call.values).toEqual([
+          TEST_DRAFT_ID,
+          "acct_owner",
+          versionNumber,
+          "hero",
+          ["image/png", "image/jpeg", "image/webp"],
+        ]);
+        return { rows: [referenceContentRow(stored)] };
+      }
+      return unexpectedQuery(call);
+    });
+
+    const response = await request(`${DRAFT_ORIGIN}${path}`, database, {
+      headers: { authorization: `Bearer ${OWNER_TOKEN}` },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array(stored));
+  });
+
+  test("does not redirect an unauthenticated subresource request", async () => {
+    const response = await request(
+      `${DRAFT_ORIGIN}/refs/hero`,
+      createFakeDatabase(unexpectedQuery),
+    );
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("location")).toBeNull();
+  });
+
+  test("uses the parent draft cookie to authorize its referenced image", async () => {
+    const stored = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const database = createFakeDatabase((call) => {
+      const sql = compactSql(call.text);
+      if (sql.startsWith("SELECT s.account_id FROM web_sessions AS s")) {
+        expect(call.values).toEqual(["web-session-id"]);
+        return { rows: [{ account_id: "acct_owner" }] };
+      }
+      if (sql.includes("FROM drafts AS source")) return { rows: [referenceContentRow(stored)] };
+      return unexpectedQuery(call);
+    });
+    const draftCookie = cookiePair(
+      createDraftSessionCookie(TEST_CONFIG, {
+        webSessionId: "web-session-id",
+        draftId: TEST_DRAFT_ID,
+      }),
+    );
+
+    const response = await request(`${DRAFT_ORIGIN}/refs/hero`, database, {
+      headers: { cookie: draftCookie },
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
   });
 });
 
 describe("browser draft handshake", () => {
+  test.each(["/v/7", "/v/007/"])(
+    "canonicalizes %s so relative references retain the version path",
+    async (path) => {
+      const response = await request(`${DRAFT_ORIGIN}${path}`, createFakeDatabase(unexpectedQuery));
+
+      expect(response.status).toBe(308);
+      expect(response.headers.get("location")).toBe(`${DRAFT_ORIGIN}/v/7/`);
+    },
+  );
+
   test("preserves the requested immutable version while returning to the apex", async () => {
-    const response = await request(`${DRAFT_ORIGIN}/v/7`, createFakeDatabase(unexpectedQuery));
+    const response = await request(`${DRAFT_ORIGIN}/v/7/`, createFakeDatabase(unexpectedQuery));
 
     expect(response.status).toBe(303);
     expect(response.headers.get("location")).toBe(
@@ -170,7 +253,7 @@ describe("browser draft handshake", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("set-cookie")).toMatch(/^__Host-pushdraft_draft=/);
     expect(response.headers.get("content-security-policy")).toContain("form-action 'none'");
-    expect(body).toContain('window.location.replace("/v/7")');
+    expect(body).toContain('window.location.replace("/v/7/")');
   });
 
   test("allows only the concrete draft exchange endpoint from the apex bridge", async () => {
@@ -309,6 +392,17 @@ function contentRow(bytes: Buffer): QueryResultRow {
     version_number: 4,
     media_type: "text/html",
     original_filename: "draft.html",
+    storage_backend: "postgres",
+    inline_bytes: bytes,
+  };
+}
+
+function referenceContentRow(bytes: Buffer): QueryResultRow {
+  return {
+    draft_id: "mnopqrstuvwx",
+    version_number: 9,
+    media_type: "image/png",
+    original_filename: "hero.png",
     storage_backend: "postgres",
     inline_bytes: bytes,
   };

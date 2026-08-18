@@ -108,6 +108,13 @@ BEGIN
   END IF;
 END $$;
 
+CREATE TABLE IF NOT EXISTS draft_version_references (
+  source_version_id TEXT NOT NULL REFERENCES draft_versions(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  target_draft_id TEXT NOT NULL REFERENCES drafts(id),
+  PRIMARY KEY (source_version_id, name)
+);
+
 CREATE TABLE IF NOT EXISTS upload_events (
   id TEXT PRIMARY KEY,
   draft_id TEXT NOT NULL REFERENCES drafts(id) ON DELETE CASCADE,
@@ -153,6 +160,8 @@ CREATE INDEX IF NOT EXISTS web_sessions_expires_at_idx ON web_sessions(expires_a
 CREATE INDEX IF NOT EXISTS drafts_account_id_updated_at_idx ON drafts(account_id, updated_at DESC);
 CREATE INDEX IF NOT EXISTS draft_versions_draft_id_version_idx
   ON draft_versions(draft_id, version_number DESC);
+CREATE INDEX IF NOT EXISTS draft_version_references_target_draft_id_idx
+  ON draft_version_references(target_draft_id);
 CREATE INDEX IF NOT EXISTS upload_events_draft_id_idx ON upload_events(draft_id);
 CREATE INDEX IF NOT EXISTS draft_access_tickets_expires_at_idx
   ON draft_access_tickets(expires_at);

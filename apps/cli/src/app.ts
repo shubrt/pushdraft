@@ -2,7 +2,7 @@ import { once } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import * as readline from "node:readline/promises";
-import type { UploadPayloadInput } from "@pushdraft/contracts";
+import type { RasterImageMediaType, UploadPayloadInput } from "@pushdraft/contracts";
 
 import {
   apiErrorMessage,
@@ -146,8 +146,20 @@ interface UploadCommand {
   draftId?: string;
   forceNew: boolean;
   description?: string;
+  references?: Record<string, string>;
   apiUrl?: string;
 }
+
+type UploadFile =
+  | { kind: "html"; html: string }
+  | { kind: "image"; bytes: Buffer; mediaType: RasterImageMediaType };
+
+const imageMediaTypes = new Map<string, RasterImageMediaType>([
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".webp", "image/webp"],
+]);
 
 async function upload(
   command: UploadCommand,
@@ -161,7 +173,10 @@ async function upload(
   const apiKey = requireApiKey(auth.apiKey);
   const apiUrl = auth.apiUrl;
   const apiKeyFingerprint = fingerprintApiKey(apiKey);
-  const html = readHtml(resolvedFile);
+  const file = readUploadFile(resolvedFile);
+  if (file.kind === "image" && command.references !== undefined) {
+    throw new CliError("References can only be attached to HTML uploads.");
+  }
   const draftState = readDraftState(statePaths);
   const draftId = command.forceNew
     ? null
@@ -169,18 +184,29 @@ async function upload(
       mappedDraftId(draftState, resolvedFile, apiUrl, apiKeyFingerprint, auth.accountId) ??
       null);
 
-  const payload = {
-    html,
+  const metadata = {
+    ...collectGitMetadata(path.dirname(resolvedFile)),
+    ...collectCiMetadata(),
+    cliVersion: version,
+    fileSha256: sha256(file.kind === "html" ? file.html : file.bytes),
+  };
+  const sharedPayload = {
     filename: path.basename(resolvedFile),
     draftId,
     description: command.description,
-    metadata: {
-      ...collectGitMetadata(path.dirname(resolvedFile)),
-      ...collectCiMetadata(),
-      cliVersion: version,
-      fileSha256: sha256(html),
-    },
-  } satisfies UploadPayloadInput;
+    metadata,
+  };
+  const payload =
+    file.kind === "html"
+      ? ({
+          ...sharedPayload,
+          html: file.html,
+          ...(command.references === undefined ? {} : { references: command.references }),
+        } satisfies UploadPayloadInput)
+      : ({
+          ...sharedPayload,
+          image: { mediaType: file.mediaType, base64: file.bytes.toString("base64") },
+        } satisfies UploadPayloadInput);
 
   const { body, response } = await requestJson(fetchImpl, `${apiUrl}/api/uploads`, {
     method: "POST",
@@ -210,7 +236,7 @@ async function upload(
 
   output.log(draftId === null ? "Uploaded draft" : "Updated draft");
   output.log(`URL: ${result.publicUrl}`);
-  output.log(`Raw HTML: ${rawUrl}`);
+  output.log(`Raw ${file.kind === "html" ? "HTML" : "image"}: ${rawUrl}`);
   output.log(`Draft ID: ${result.draftId}`);
   output.log(`Version: ${result.versionNumber}`);
   for (const warning of result.warnings) output.warn(`Warning: ${warning}`);
@@ -235,17 +261,26 @@ async function listDrafts(
   output.log(json ? JSON.stringify(drafts, null, 2) : formatDrafts(drafts));
 }
 
-function readHtml(filename: string): string {
-  let html: string;
+function readUploadFile(filename: string): UploadFile {
+  const extension = path.extname(filename).toLowerCase();
+  const mediaType = imageMediaTypes.get(extension);
+
+  let bytes: Buffer;
   try {
-    html = fs.readFileSync(filename, "utf8");
+    bytes = fs.readFileSync(filename);
   } catch (error) {
     if (!fs.existsSync(filename)) throw new CliError(`File does not exist: ${filename}`);
     throw new CliError(`Could not read file: ${filename}`, { cause: error });
   }
 
+  if (mediaType !== undefined) {
+    if (bytes.length === 0) throw new CliError("Image file is empty.");
+    return { kind: "image", bytes, mediaType };
+  }
+
+  const html = bytes.toString("utf8");
   if (html.trim() === "") throw new CliError("HTML document is empty.");
-  return html;
+  return { kind: "html", html };
 }
 
 function authenticatedHeaders(apiKey: string, version: string): Record<string, string> {

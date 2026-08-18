@@ -88,6 +88,56 @@ describe("upload contracts", () => {
     assert.equal("ignored" in parsed, false);
   });
 
+  test("accepts named draft references on HTML uploads", () => {
+    const parsed = uploadPayloadSchema.parse({
+      html: '<img src="./refs/hero-image">',
+      references: {
+        "hero-image": draftId,
+      },
+    });
+
+    assert.deepEqual(parsed.references, { "hero-image": draftId });
+  });
+
+  test("rejects invalid HTML reference names and draft IDs", () => {
+    assert.throws(() =>
+      uploadPayloadSchema.parse({
+        html: '<img src="./refs/Hero">',
+        references: { Hero: draftId },
+      }),
+    );
+    assert.throws(() =>
+      uploadPayloadSchema.parse({
+        html: '<img src="./refs/hero">',
+        references: { hero: "too-short" },
+      }),
+    );
+  });
+
+  test("accepts raster image uploads and rejects references on them", () => {
+    for (const mediaType of ["image/png", "image/jpeg", "image/webp"] as const) {
+      assert.doesNotThrow(() =>
+        uploadPayloadSchema.parse({
+          image: { mediaType, base64: Buffer.from("image bytes").toString("base64") },
+          filename: `image.${mediaType.slice("image/".length)}`,
+        }),
+      );
+    }
+
+    assert.throws(() =>
+      uploadPayloadSchema.parse({
+        image: { mediaType: "image/png", base64: "aW1hZ2U=" },
+        references: { hero: draftId },
+      }),
+    );
+    assert.throws(() =>
+      uploadPayloadSchema.parse({
+        html: "<title>Mixed payload</title>",
+        image: { mediaType: "image/png", base64: "aW1hZ2U=" },
+      }),
+    );
+  });
+
   test("keeps additional metadata without validating client-supplied text", () => {
     const description = "d".repeat(1_001);
     const parsed = uploadPayloadSchema.parse({
@@ -149,7 +199,7 @@ describe("draft contracts", () => {
 });
 
 describe("public file contracts", () => {
-  test("distinguishes HTML and PDF without storage fields", () => {
+  test("distinguishes HTML, PDF, and raster images without storage fields", () => {
     assert.deepEqual(contentDescriptorSchema.parse({ kind: "html", mediaType: "text/html" }), {
       kind: "html",
       mediaType: "text/html",
@@ -157,6 +207,10 @@ describe("public file contracts", () => {
     assert.deepEqual(contentDescriptorSchema.parse({ kind: "pdf", mediaType: "application/pdf" }), {
       kind: "pdf",
       mediaType: "application/pdf",
+    });
+    assert.deepEqual(contentDescriptorSchema.parse({ kind: "image", mediaType: "image/webp" }), {
+      kind: "image",
+      mediaType: "image/webp",
     });
 
     assert.throws(() =>

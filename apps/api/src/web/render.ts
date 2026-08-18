@@ -1,4 +1,4 @@
-import type { DraftDetailResponse, DraftSummary } from "@pushdraft/contracts";
+import type { ContentDescriptor, DraftDetailResponse, DraftSummary } from "@pushdraft/contracts";
 
 import type { WebSession } from "../auth/session";
 
@@ -266,7 +266,7 @@ function formatDateTime(value: string): string {
     : `${date} · ${time}`;
 }
 
-function formatFileKind(kind: "html" | "pdf"): string {
+function formatFileKind(kind: ContentDescriptor["kind"]): string {
   return kind.toUpperCase();
 }
 
