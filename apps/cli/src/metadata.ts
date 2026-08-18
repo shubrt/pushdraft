@@ -94,7 +94,7 @@ export function parseRemote(remote: string | null | undefined): ParsedRemote {
   return org === undefined || name === undefined ? {} : { org, name };
 }
 
-export function sha256(value: string): string {
+export function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
 }
 

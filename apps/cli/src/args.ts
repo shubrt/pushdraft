@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { draftIdSchema, draftReferenceNameSchema } from "@pushdraft/contracts";
 
 import { CliError, errorMessage } from "./errors.js";
 
@@ -14,19 +15,20 @@ export type ParsedCommand =
       draftId?: string;
       forceNew: boolean;
       description?: string;
+      references?: Record<string, string>;
       apiUrl?: string;
     }
   | { kind: "list"; apiUrl?: string; json: boolean };
 
 export const ROOT_HELP = `Usage: pushdraft <command> [options]
 
-Publish private HTML drafts to pushdraft.
+Publish private drafts to pushdraft.
 
 Commands:
   auth set <api-key>  Save an API key
   auth login          Paste and verify a key from the browser
   whoami              Check the configured credentials
-  upload <file>       Upload or update an HTML draft
+  upload <file>       Upload or update an HTML or image draft
   list                List drafts in your account
 
 Options:
@@ -60,11 +62,14 @@ Options:
 const UPLOAD_HELP = `Usage: pushdraft upload <file> [options]
 
 Options:
-  --draft <draft-id>  Update a specific draft
-  --new               Always create a new draft
+  --draft <draft-id>   Update a specific draft
+  --new                Always create a new draft
   --description <text> Set a short draft description
-  --api-url <url>     Override the pushdraft API base URL
-  -h, --help          Show help`;
+  --ref <name=id>      Attach an image draft to HTML (repeatable)
+  --api-url <url>      Override the pushdraft API base URL
+  -h, --help           Show help
+
+Raster image extensions: .png, .jpg, .jpeg, .webp`;
 
 const LIST_HELP = `Usage: pushdraft list [options]
 
@@ -166,20 +171,45 @@ function parseUploadArgs(argv: string[]): ParsedCommand {
       draft: { type: "string" },
       new: { type: "boolean" },
       description: { type: "string" },
+      ref: { type: "string", multiple: true },
       "api-url": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
   });
   if (values.help === true) return { kind: "help", text: UPLOAD_HELP };
   const file = expectOnePositional(positionals, "file", UPLOAD_HELP);
+  const references = parseReferences(values.ref);
   return {
     kind: "upload",
     file,
     draftId: values.draft,
     forceNew: values.new ?? false,
     description: values.description,
+    ...(references === undefined ? {} : { references }),
     apiUrl: values["api-url"],
   };
+}
+
+function parseReferences(values: string[] | undefined): Record<string, string> | undefined {
+  if (values === undefined) return undefined;
+
+  const references = new Map<string, string>();
+  for (const value of values) {
+    const separatorIndex = value.indexOf("=");
+    const name = value.slice(0, separatorIndex);
+    const draftId = value.slice(separatorIndex + 1);
+    const validName = separatorIndex > 0 && draftReferenceNameSchema.safeParse(name).success;
+    const validDraftId = draftIdSchema.safeParse(draftId).success;
+    if (!validName || !validDraftId) {
+      throw new CliError(
+        `Invalid reference: ${value}. Expected a lowercase name and a 12-character draft ID, for example hero=q43kvvtxix1x.`,
+      );
+    }
+    if (references.has(name)) throw new CliError(`Duplicate reference name: ${name}.`);
+    references.set(name, draftId);
+  }
+
+  return Object.fromEntries(references);
 }
 
 function parseListArgs(argv: string[]): ParsedCommand {

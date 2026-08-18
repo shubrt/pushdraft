@@ -33,8 +33,15 @@ import {
 import { buildAuthorizeUrl, buildPkce, exchangeAndVerifyShooCode } from "./auth/shoo";
 import type { AppConfig } from "./config";
 import type { Database } from "./db/database";
-import { getDraftDetail, getStoredContent, listDrafts, uploadHtml } from "./drafts/repository";
 import { validateHtml } from "./drafts/html-policy";
+import { validateImage } from "./drafts/image-policy";
+import {
+  getDraftDetail,
+  getStoredContent,
+  getStoredReference,
+  listDrafts,
+  uploadDraft,
+} from "./drafts/repository";
 import { randomToken } from "./lib/crypto";
 import {
   apexOrigin,
@@ -323,12 +330,23 @@ async function handleUpload(
   auth: ApiKeyAuth,
   payload: UploadPayload,
 ): Promise<Response> {
-  const validation = validateHtml(payload.html, config.maxHtmlBytes);
-  if (!validation.ok) {
+  const validation =
+    typeof payload.html === "string" ? validateHtml(payload.html, config.maxHtmlBytes) : null;
+  if (validation && !validation.ok) {
     return json({ ok: false, errors: validation.errors, warnings: validation.warnings }, 422);
   }
+  if (payload.image !== undefined) {
+    const imageValidation = validateImage(
+      payload.image.base64,
+      payload.image.mediaType,
+      config.maxHtmlBytes,
+    );
+    if (!imageValidation.ok) {
+      return json({ ok: false, errors: imageValidation.errors, warnings: [] }, 422);
+    }
+  }
   try {
-    const uploaded = await uploadHtml(database, config, payload, validation, {
+    const uploaded = await uploadDraft(database, config, payload, validation, {
       apiKeyId: auth.id,
       accountId: auth.accountId,
       sourceIp: request.headers.get("x-real-ip"),
@@ -338,6 +356,9 @@ async function handleUpload(
     return json(uploaded, payload.draftId ? 200 : 201);
   } catch (error) {
     if (isStatusError(error, 404)) return json({ ok: false, error: "Draft not found." }, 404);
+    if (isStatusError(error, 422) && error instanceof Error) {
+      return json({ ok: false, error: error.message }, 422);
+    }
     throw error;
   }
 }
@@ -358,7 +379,7 @@ async function handleDraftHost(
     if (!ticketValue) return response("Unauthorized.", 401, "text/plain; charset=utf-8");
     const ticket = await consumeDraftAccessTicket(database, ticketValue, draftId);
     if (!ticket) return response("Unauthorized.", 401, "text/plain; charset=utf-8");
-    const targetPath = ticket.versionNumber ? `/v/${ticket.versionNumber}` : "/";
+    const targetPath = ticket.versionNumber ? `/v/${ticket.versionNumber}/` : "/";
     const nonce = randomToken(16);
     return html(
       renderDraftReady(targetPath, nonce),
@@ -378,6 +399,14 @@ async function handleDraftHost(
   if (request.method !== "GET" && request.method !== "HEAD") {
     return methodNotAllowed("GET, HEAD");
   }
+  if (
+    route.kind === "content" &&
+    !route.raw &&
+    route.versionNumber !== undefined &&
+    url.pathname !== `/v/${route.versionNumber}/`
+  ) {
+    return redirect(draftUrl(config, draftId, `/v/${route.versionNumber}/`), 308);
+  }
 
   const authHeader = request.headers.get("authorization");
   let accountId: string | null = null;
@@ -392,7 +421,7 @@ async function handleDraftHost(
   }
 
   if (!accountId) {
-    if (route.raw) return bearerError();
+    if (route.kind === "reference" || route.raw) return bearerError();
     const bridgeUrl = new URL(`/${draftId}`, config.publicUrl);
     if (route.versionNumber !== undefined) {
       bridgeUrl.searchParams.set("version", String(route.versionNumber));
@@ -400,7 +429,10 @@ async function handleDraftHost(
     return redirect(bridgeUrl.toString());
   }
 
-  const content = await getStoredContent(database, accountId, draftId, route.versionNumber);
+  const content =
+    route.kind === "reference"
+      ? await getStoredReference(database, accountId, draftId, route.versionNumber, route.name)
+      : await getStoredContent(database, accountId, draftId, route.versionNumber);
   if (!content) return html(renderNotFound(), 404);
 
   const headers = new Headers({
@@ -506,7 +538,7 @@ function draftContentSecurityPolicy(): string {
     "default-src 'none'",
     "script-src 'none'",
     "style-src 'unsafe-inline'",
-    "img-src https: data:",
+    "img-src 'self' https: data:",
     "connect-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
@@ -540,13 +572,38 @@ function uploadRequestLimit(config: AppConfig): number {
   return Math.max(2 * 1024 * 1024, config.maxHtmlBytes * 2 + 64 * 1024);
 }
 
-function parseDraftContentRoute(pathname: string): { raw: boolean; versionNumber?: number } | null {
-  if (pathname === "/") return { raw: false };
-  if (pathname === "/raw") return { raw: true };
-  const match = pathname.match(/^\/v\/([^/]+)(\/raw)?$/);
-  if (!match?.[1]) return null;
-  const versionNumber = parsePositiveVersion(match[1]);
-  return versionNumber === null ? null : { raw: Boolean(match[2]), versionNumber };
+type DraftContentRoute =
+  | { kind: "content"; raw: boolean; versionNumber?: number }
+  | { kind: "reference"; raw: false; name: string; versionNumber?: number };
+
+function parseDraftContentRoute(pathname: string): DraftContentRoute | null {
+  if (pathname === "/") return { kind: "content", raw: false };
+  if (pathname === "/raw") return { kind: "content", raw: true };
+
+  const currentReference = pathname.match(/^\/refs\/([a-z][a-z0-9-]{0,62})$/);
+  if (currentReference?.[1]) {
+    return { kind: "reference", raw: false, name: currentReference[1] };
+  }
+
+  const versionReference = pathname.match(/^\/v\/([^/]+)\/refs\/([a-z][a-z0-9-]{0,62})$/);
+  if (versionReference?.[1] && versionReference[2]) {
+    const versionNumber = parsePositiveVersion(versionReference[1]);
+    return versionNumber === null
+      ? null
+      : {
+          kind: "reference",
+          raw: false,
+          name: versionReference[2],
+          versionNumber,
+        };
+  }
+
+  const versionContent = pathname.match(/^\/v\/([^/]+)(\/raw|\/)?$/);
+  if (!versionContent?.[1]) return null;
+  const versionNumber = parsePositiveVersion(versionContent[1]);
+  return versionNumber === null
+    ? null
+    : { kind: "content", raw: versionContent[2] === "/raw", versionNumber };
 }
 
 function bearerError(): Response {

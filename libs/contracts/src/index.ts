@@ -13,6 +13,17 @@ export const isoDateTimeSchema = z.string().datetime({ offset: true });
 export const urlSchema = z.string().url();
 export const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/i, "Expected a SHA-256 hash.");
 
+export const rasterImageMediaTypeSchema = z.enum(["image/png", "image/jpeg", "image/webp"]);
+
+export const draftReferenceNameSchema = z
+  .string()
+  .regex(
+    /^[a-z][a-z0-9-]{0,62}$/,
+    "Reference names must start with a lowercase letter and contain only lowercase letters, digits, or hyphens.",
+  );
+
+export const draftReferencesSchema = z.record(draftReferenceNameSchema, draftIdSchema);
+
 export const uploadMetadataSchema = z
   .object({
     repoOrg: optionalMetadataStringSchema,
@@ -30,13 +41,33 @@ export const uploadMetadataSchema = z
   })
   .passthrough();
 
-export const uploadPayloadSchema = z.object({
-  html: z.string().min(1),
+const uploadPayloadBaseShape = {
   filename: z.string().optional(),
   draftId: draftIdSchema.nullable().optional(),
   description: z.string().optional(),
   metadata: uploadMetadataSchema.optional(),
+};
+
+export const htmlUploadPayloadSchema = z.object({
+  ...uploadPayloadBaseShape,
+  html: z.string().min(1),
+  image: z.never().optional(),
+  references: draftReferencesSchema.optional(),
 });
+
+export const imageUploadPayloadSchema = z.object({
+  ...uploadPayloadBaseShape,
+  html: z.never().optional(),
+  image: z
+    .object({
+      mediaType: rasterImageMediaTypeSchema,
+      base64: z.base64(),
+    })
+    .strict(),
+  references: z.never().optional(),
+});
+
+export const uploadPayloadSchema = z.union([htmlUploadPayloadSchema, imageUploadPayloadSchema]);
 
 export const uploadResponseSchema = z
   .object({
@@ -66,9 +97,17 @@ export const pdfContentDescriptorSchema = z
   })
   .strict();
 
+export const imageContentDescriptorSchema = z
+  .object({
+    kind: z.literal("image"),
+    mediaType: rasterImageMediaTypeSchema,
+  })
+  .strict();
+
 export const contentDescriptorSchema = z.discriminatedUnion("kind", [
   htmlContentDescriptorSchema,
   pdfContentDescriptorSchema,
+  imageContentDescriptorSchema,
 ]);
 
 // Storage location and stored bytes belong to the persistence layer, not API responses.
@@ -174,6 +213,7 @@ export const validationApiErrorSchema = z
 export const apiErrorSchema = z.union([messageApiErrorSchema, validationApiErrorSchema]);
 
 export type DraftId = z.output<typeof draftIdSchema>;
+export type RasterImageMediaType = z.output<typeof rasterImageMediaTypeSchema>;
 
 export type UploadMetadataInput = z.input<typeof uploadMetadataSchema>;
 export type UploadMetadataOutput = z.output<typeof uploadMetadataSchema>;

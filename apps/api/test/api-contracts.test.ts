@@ -77,7 +77,7 @@ describe("API response contracts", () => {
     const fileInsert = database.calls.find((call) =>
       compactSql(call.text).startsWith("INSERT INTO files"),
     );
-    expect(fileInsert?.values[1]).toBe("draft.html");
+    expect(fileInsert?.values[2]).toBe("draft.html");
   });
 
   test("POST /api/uploads updates a known draft", async () => {
@@ -106,6 +106,27 @@ describe("API response contracts", () => {
     expect(body.draftId).toBe(TEST_DRAFT_ID);
     expect(body.versionNumber).toBe(2);
     expect(body.title).toBe("Updated draft");
+  });
+
+  test("POST /api/uploads stores a validated raster image", async () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const database = transactionalDatabase(uploadWriteHandler());
+    const response = await apiRequest("/api/uploads", database, {
+      method: "POST",
+      body: JSON.stringify({
+        image: { mediaType: "image/png", base64: png.toString("base64") },
+        filename: "hero.png",
+      }),
+    });
+    const body = uploadResponseSchema.parse(await responseJson(response));
+
+    expect(response.status).toBe(201);
+    expect(body.title).toBe("hero.png");
+    const fileInsert = database.calls.find((call) =>
+      compactSql(call.text).startsWith("INSERT INTO files"),
+    );
+    expect(fileInsert?.values.slice(1, 4)).toEqual(["image/png", "hero.png", png.byteLength]);
+    expect(fileInsert?.values[5]).toEqual(png);
   });
 });
 
@@ -159,6 +180,25 @@ describe("API error contracts", () => {
     expect(response.status).toBe(422);
     expect(body.ok).toBe(false);
     expect("errors" in body ? body.errors : []).not.toHaveLength(0);
+  });
+
+  test("rejects image bytes that do not match the declared media type", async () => {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xdb]);
+    const response = await apiRequest("/api/uploads", authenticatedDatabase(), {
+      method: "POST",
+      body: JSON.stringify({
+        image: { mediaType: "image/png", base64: jpeg.toString("base64") },
+        filename: "pretend.png",
+      }),
+    });
+    const body = apiErrorSchema.parse(await responseJson(response));
+
+    expect(response.status).toBe(422);
+    expect(body).toEqual({
+      ok: false,
+      errors: ["Image bytes do not match declared media type image/png."],
+      warnings: [],
+    });
   });
 });
 

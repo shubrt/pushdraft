@@ -1,7 +1,7 @@
 # pushdraft
 
 [Pushdraft](https://pushdraft.dev) is the open-source alternative to
-[postplan.dev](https://postplan.dev) for publishing versioned HTML drafts. The
+[postplan.dev](https://postplan.dev) for publishing versioned drafts. The
 entire server, API and CLI codebase is public, and drafts can be protected with
 authentication.
 
@@ -24,6 +24,20 @@ Run the CLI without installing it:
 npx pushdraft upload ./plan.html
 # or
 bunx pushdraft upload ./plan.html
+```
+
+HTML drafts can reference the current version of an image draft by name:
+
+```bash
+pushdraft upload ./hero.png
+pushdraft upload ./page.html --ref hero=<image-draft-id>
+```
+
+The HTML uses a relative URL so current and historical page versions resolve
+their own reference mapping:
+
+```html
+<img src="refs/hero" alt="Hero" />
 ```
 
 Run `npx pushdraft --help` for all commands and options.
@@ -90,7 +104,7 @@ the release flow.
 
 The API keeps every browser page and draft private. Browser access uses a Shoo
 session plus a one-time subdomain handshake. Agents use a Bearer API key for
-listing, uploading and fetching draft HTML.
+listing, uploading and fetching draft files.
 
 ## License
 
