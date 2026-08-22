@@ -19,6 +19,10 @@ describe("parseCliArgs", () => {
         "draft_123",
         "--description",
         "Launch plan",
+        "--ref",
+        "hero-image=q43kvvtxix1x",
+        "--ref",
+        "chart=abc123def456",
         "--api-url",
         "https://pushdraft.example",
       ]),
@@ -28,6 +32,10 @@ describe("parseCliArgs", () => {
       draftId: "draft_123",
       forceNew: false,
       description: "Launch plan",
+      references: {
+        "hero-image": "q43kvvtxix1x",
+        chart: "abc123def456",
+      },
       apiUrl: "https://pushdraft.example",
     });
   });
@@ -51,5 +59,32 @@ describe("parseCliArgs", () => {
   test("rejects missing and extra positional arguments", () => {
     expect(() => parseCliArgs(["upload"])).toThrow("Missing file");
     expect(() => parseCliArgs(["whoami", "extra"])).toThrow("Unexpected argument");
+  });
+
+  test("rejects malformed and duplicate references", () => {
+    expect(() => parseCliArgs(["upload", "plan.html", "--ref", "Hero=q43kvvtxix1x"])).toThrow(
+      "Invalid reference",
+    );
+    expect(() => parseCliArgs(["upload", "plan.html", "--ref", "hero=short"])).toThrow(
+      "Invalid reference",
+    );
+    expect(() =>
+      parseCliArgs([
+        "upload",
+        "plan.html",
+        "--ref",
+        "hero=q43kvvtxix1x",
+        "--ref",
+        "hero=abc123def456",
+      ]),
+    ).toThrow("Duplicate reference name: hero");
+  });
+
+  test("lists supported upload files and the reference option in help", () => {
+    const command = parseCliArgs(["upload", "--help"]);
+    expect(command).toMatchObject({ kind: "help" });
+    if (command.kind !== "help") throw new Error("Expected upload help.");
+    expect(command.text).toContain("--ref <name=id>");
+    expect(command.text).toContain(".png, .jpg, .jpeg, .webp");
   });
 });

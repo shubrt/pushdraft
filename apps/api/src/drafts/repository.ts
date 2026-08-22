@@ -3,10 +3,11 @@ import type {
   DraftListResponse,
   DraftSummary,
   DraftVersion,
+  RasterImageMediaType,
   UploadPayload,
   UploadResponse,
 } from "@pushdraft/contracts";
-import type { QueryResultRow } from "pg";
+import type { PoolClient, QueryResultRow } from "pg";
 
 import type { AppConfig } from "../config";
 import type { Database } from "../db/database";
@@ -65,15 +66,46 @@ export type StoredContent = {
   bytes: Uint8Array;
 };
 
-export async function uploadHtml(
+type DraftReference = {
+  name: string;
+  targetDraftId: string;
+};
+
+type HtmlUploadPayload = Extract<UploadPayload, { html: string }>;
+
+type StoredContentRow = QueryResultRow & {
+  draft_id: string;
+  version_number: number | string;
+  media_type: string;
+  original_filename: string;
+  storage_backend: "postgres" | "r2";
+  inline_bytes: Buffer | null;
+};
+
+const RASTER_IMAGE_MEDIA_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+
+export async function uploadDraft(
   database: Database,
   config: AppConfig,
   payload: UploadPayload,
-  validation: HtmlValidation,
+  validation: HtmlValidation | null,
   context: UploadContext,
 ): Promise<UploadResponse> {
-  const bytes = Buffer.from(payload.html, "utf8");
+  const isHtml = isHtmlUpload(payload);
+  if (isHtml && !validation) {
+    throw new Error("HTML uploads require a successful validation result.");
+  }
+
+  const mediaType = isHtml ? "text/html" : payload.image.mediaType;
+  const bytes = isHtml
+    ? Buffer.from(payload.html, "utf8")
+    : Buffer.from(payload.image.base64, "base64");
   const metadata = payload.metadata ?? {};
+  const references: DraftReference[] = isHtml
+    ? Object.entries(payload.references ?? {})
+        .map(([name, targetDraftId]) => ({ name, targetDraftId }))
+        .sort((left, right) => left.name.localeCompare(right.name))
+    : [];
 
   return database.transaction(async (client) => {
     const existing = payload.draftId
@@ -94,11 +126,17 @@ export async function uploadHtml(
     if (payload.draftId && !existingDraft) throw new DraftNotFoundError();
 
     const draftId = existingDraft?.id ?? newDraftId();
+    await validateDraftReferences(client, context.accountId, draftId, references);
+
     const fileId = newInternalId();
     const versionId = newInternalId();
-    const filename = cleanText(payload.filename) ?? "draft.html";
-    const title =
-      validation.title ?? existingDraft?.title ?? cleanText(payload.filename) ?? "Untitled Draft";
+    const filename = cleanText(payload.filename) ?? defaultFilename(mediaType);
+    const title = isHtml
+      ? (validation?.title ??
+        existingDraft?.title ??
+        cleanText(payload.filename) ??
+        "Untitled Draft")
+      : (existingDraft?.title ?? cleanText(payload.filename) ?? "Untitled Draft");
     const description = cleanText(payload.description, 1_000);
     const versionNumber = existingDraft
       ? Number(
@@ -139,9 +177,9 @@ export async function uploadHtml(
         INSERT INTO files (
           id, media_type, original_filename, byte_size, sha256,
           storage_backend, inline_bytes
-        ) VALUES ($1, 'text/html', $2, $3, $4, 'postgres', $5)
+        ) VALUES ($1, $2, $3, $4, $5, 'postgres', $6)
       `,
-      [fileId, filename, bytes.byteLength, sha256(bytes), bytes],
+      [fileId, mediaType, filename, bytes.byteLength, sha256(bytes), bytes],
     );
 
     await client.query(
@@ -170,13 +208,30 @@ export async function uploadHtml(
         cleanText(metadata.gitCommitSubject),
         metadata.gitDirty ?? null,
         context.requestId,
-        validation.stats.hasInlineScript,
-        JSON.stringify(validation.stats.externalImageHosts),
+        validation?.stats.hasInlineScript ?? false,
+        JSON.stringify(validation?.stats.externalImageHosts ?? []),
         cleanText(metadata.ciProvider),
         cleanText(metadata.ciRunUrl),
         cleanText(metadata.ciActor),
       ],
     );
+
+    if (references.length > 0) {
+      await client.query(
+        `
+          INSERT INTO draft_version_references (
+            source_version_id, name, target_draft_id
+          )
+          SELECT $1, reference.name, reference.target_draft_id
+          FROM unnest($2::text[], $3::text[]) AS reference(name, target_draft_id)
+        `,
+        [
+          versionId,
+          references.map((reference) => reference.name),
+          references.map((reference) => reference.targetDraftId),
+        ],
+      );
+    }
 
     await client.query(
       `
@@ -229,7 +284,7 @@ export async function uploadHtml(
       requestId: context.requestId,
       publicUrl: draftUrl(config, draftId),
       rawUrl: draftUrl(config, draftId, "/raw"),
-      warnings: validation.warnings,
+      warnings: validation?.warnings ?? [],
     };
   });
 }
@@ -337,16 +392,7 @@ export async function getStoredContent(
   draftId: string,
   versionNumber?: number,
 ): Promise<StoredContent | null> {
-  const result = await database.query<
-    QueryResultRow & {
-      draft_id: string;
-      version_number: number | string;
-      media_type: string;
-      original_filename: string;
-      storage_backend: "postgres" | "r2";
-      inline_bytes: Buffer | null;
-    }
-  >(
+  const result = await database.query<StoredContentRow>(
     `
       SELECT
         d.id AS draft_id,
@@ -371,17 +417,51 @@ export async function getStoredContent(
     [draftId, accountId, versionNumber ?? null],
   );
   const row = result.rows[0];
-  if (!row) return null;
-  if (row.storage_backend !== "postgres" || !row.inline_bytes) {
-    throw new Error("The configured content storage backend is not available.");
-  }
-  return {
-    draftId: row.draft_id,
-    versionNumber: Number(row.version_number),
-    mediaType: row.media_type,
-    filename: row.original_filename,
-    bytes: row.inline_bytes,
-  };
+  return row ? mapStoredContent(row) : null;
+}
+
+export async function getStoredReference(
+  database: Database,
+  accountId: string,
+  sourceDraftId: string,
+  sourceVersionNumber: number | undefined,
+  name: string,
+): Promise<StoredContent | null> {
+  const result = await database.query<StoredContentRow>(
+    `
+      SELECT
+        target.id AS draft_id,
+        target_version.version_number,
+        target_file.media_type,
+        target_file.original_filename,
+        target_file.storage_backend,
+        target_file.inline_bytes
+      FROM drafts AS source
+      JOIN draft_versions AS source_version ON source_version.draft_id = source.id
+      JOIN draft_version_references AS reference
+        ON reference.source_version_id = source_version.id
+       AND reference.name = $4
+      JOIN drafts AS target ON target.id = reference.target_draft_id
+      JOIN draft_versions AS target_version ON target_version.id = target.current_version_id
+      JOIN files AS target_file ON target_file.id = target_version.file_id
+      WHERE source.id = $1
+        AND source.account_id = $2
+        AND source.deleted_at IS NULL
+        AND source.disabled_at IS NULL
+        AND (
+          ($3::integer IS NULL AND source_version.id = source.current_version_id)
+          OR source_version.version_number = $3
+        )
+        AND target.account_id = $2
+        AND target.deleted_at IS NULL
+        AND target.disabled_at IS NULL
+        AND target_file.media_type = ANY($5::text[])
+      LIMIT 1
+    `,
+    [sourceDraftId, accountId, sourceVersionNumber ?? null, name, RASTER_IMAGE_MEDIA_TYPES],
+  );
+  const row = result.rows[0];
+  return row ? mapStoredContent(row) : null;
 }
 
 function mapDraft(config: AppConfig, row: DraftRow): DraftSummary {
@@ -406,14 +486,18 @@ function mapDraft(config: AppConfig, row: DraftRow): DraftSummary {
 
 function mapVersion(config: AppConfig, draftId: string, row: VersionRow): DraftVersion {
   const versionNumber = Number(row.version_number);
-  if (row.media_type !== "text/html" && row.media_type !== "application/pdf") {
+  if (
+    row.media_type !== "text/html" &&
+    row.media_type !== "application/pdf" &&
+    !isRasterImageMediaType(row.media_type)
+  ) {
     throw new Error(`Unsupported stored media type: ${row.media_type}`);
   }
   return {
     versionId: row.id,
     versionNumber,
     createdAt: asIso(row.created_at),
-    publicUrl: draftUrl(config, draftId, `/v/${versionNumber}`),
+    publicUrl: draftUrl(config, draftId, `/v/${versionNumber}/`),
     rawUrl: draftUrl(config, draftId, `/v/${versionNumber}/raw`),
     file: {
       fileId: row.file_id,
@@ -423,7 +507,9 @@ function mapVersion(config: AppConfig, draftId: string, row: VersionRow): DraftV
       content:
         row.media_type === "text/html"
           ? { kind: "html", mediaType: "text/html" }
-          : { kind: "pdf", mediaType: "application/pdf" },
+          : row.media_type === "application/pdf"
+            ? { kind: "pdf", mediaType: "application/pdf" }
+            : { kind: "image", mediaType: row.media_type },
     },
     metadata: {
       gitBranch: row.git_branch,
@@ -436,6 +522,78 @@ function mapVersion(config: AppConfig, draftId: string, row: VersionRow): DraftV
       ciActor: row.ci_actor,
     },
   };
+}
+
+async function validateDraftReferences(
+  client: PoolClient,
+  accountId: string,
+  sourceDraftId: string,
+  references: readonly DraftReference[],
+): Promise<void> {
+  const selfReference = references.find((reference) => reference.targetDraftId === sourceDraftId);
+  if (selfReference) {
+    throw new InvalidDraftReferenceError(selfReference.name, selfReference.targetDraftId);
+  }
+  if (references.length === 0) return;
+
+  const targetDraftIds = [...new Set(references.map((reference) => reference.targetDraftId))];
+  const result = await client.query<QueryResultRow & { target_draft_id: string }>(
+    `
+      SELECT target.id AS target_draft_id
+      FROM drafts AS target
+      JOIN draft_versions AS current_version ON current_version.id = target.current_version_id
+      JOIN files AS current_file ON current_file.id = current_version.file_id
+      WHERE target.id = ANY($1::text[])
+        AND target.account_id = $2
+        AND target.deleted_at IS NULL
+        AND target.disabled_at IS NULL
+        AND current_file.media_type = ANY($3::text[])
+      ORDER BY target.id
+      FOR SHARE OF target
+    `,
+    [targetDraftIds, accountId, RASTER_IMAGE_MEDIA_TYPES],
+  );
+  const validTargetDraftIds = new Set(result.rows.map((row) => row.target_draft_id));
+  const invalidReference = references.find(
+    (reference) => !validTargetDraftIds.has(reference.targetDraftId),
+  );
+  if (invalidReference) {
+    throw new InvalidDraftReferenceError(invalidReference.name, invalidReference.targetDraftId);
+  }
+}
+
+function mapStoredContent(row: StoredContentRow): StoredContent {
+  if (row.storage_backend !== "postgres" || !row.inline_bytes) {
+    throw new Error("The configured content storage backend is not available.");
+  }
+  return {
+    draftId: row.draft_id,
+    versionNumber: Number(row.version_number),
+    mediaType: row.media_type,
+    filename: row.original_filename,
+    bytes: row.inline_bytes,
+  };
+}
+
+function isRasterImageMediaType(mediaType: string): mediaType is RasterImageMediaType {
+  return RASTER_IMAGE_MEDIA_TYPES.some((supported) => supported === mediaType);
+}
+
+function isHtmlUpload(payload: UploadPayload): payload is HtmlUploadPayload {
+  return typeof payload.html === "string";
+}
+
+function defaultFilename(mediaType: "text/html" | RasterImageMediaType): string {
+  switch (mediaType) {
+    case "text/html":
+      return "draft.html";
+    case "image/png":
+      return "draft.png";
+    case "image/jpeg":
+      return "draft.jpg";
+    case "image/webp":
+      return "draft.webp";
+  }
 }
 
 function cleanText(value: string | null | undefined, maxLength = 255): string | null {
@@ -452,5 +610,18 @@ export class DraftNotFoundError extends Error {
 
   constructor() {
     super("Draft not found.");
+  }
+}
+
+export class InvalidDraftReferenceError extends Error {
+  readonly status = 422;
+
+  constructor(
+    readonly referenceName: string,
+    readonly targetDraftId: string,
+  ) {
+    super(
+      `Reference "${referenceName}" must target an active raster image draft in the same account.`,
+    );
   }
 }
