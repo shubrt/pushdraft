@@ -16,6 +16,7 @@ export type ParsedCommand =
       forceNew: boolean;
       description?: string;
       references?: Record<string, string>;
+      referencesFile?: string;
       apiUrl?: string;
     }
   | { kind: "list"; apiUrl?: string; json: boolean };
@@ -66,8 +67,13 @@ Options:
   --new                Always create a new draft
   --description <text> Set a short draft description
   --ref <name=id>      Attach an image draft to HTML (repeatable)
+  --refs-file <path>   Upload image references from a JSON manifest
   --api-url <url>      Override the pushdraft API base URL
   -h, --help           Show help
+
+References manifest example:
+  {"hero":"./images/hero.webp","logo":"./images/logo.png"}
+Image paths are resolved relative to the manifest.
 
 Raster image extensions: .png, .jpg, .jpeg, .webp`;
 
@@ -172,6 +178,7 @@ function parseUploadArgs(argv: string[]): ParsedCommand {
       new: { type: "boolean" },
       description: { type: "string" },
       ref: { type: "string", multiple: true },
+      "refs-file": { type: "string" },
       "api-url": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
@@ -186,6 +193,7 @@ function parseUploadArgs(argv: string[]): ParsedCommand {
     forceNew: values.new ?? false,
     description: values.description,
     ...(references === undefined ? {} : { references }),
+    ...(values["refs-file"] === undefined ? {} : { referencesFile: values["refs-file"] }),
     apiUrl: values["api-url"],
   };
 }

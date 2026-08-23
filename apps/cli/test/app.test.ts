@@ -95,6 +95,177 @@ describe("upload", () => {
     expect(payload.references).toEqual({ "hero-image": "q43kvvtxix1x" });
   });
 
+  test("uploads manifest images concurrently before the HTML draft", async () => {
+    const homeDirectory = makeTemporaryDirectory();
+    const statePaths = createStatePaths(homeDirectory);
+    const bundleDirectory = path.join(homeDirectory, "bundle");
+    const imagesDirectory = path.join(bundleDirectory, "images");
+    const htmlFile = path.join(bundleDirectory, "gallery.html");
+    const manifestFile = path.join(bundleDirectory, "pushdraft.assets.json");
+    const heroFile = path.join(imagesDirectory, "hero.webp");
+    const logoFile = path.join(imagesDirectory, "logo.png");
+    fs.mkdirSync(imagesDirectory, { recursive: true });
+    fs.writeFileSync(
+      htmlFile,
+      '<img src="refs/hero"><img src="refs/logo"><img src="refs/hero-small">',
+    );
+    fs.writeFileSync(heroFile, Buffer.from("hero image"));
+    fs.writeFileSync(logoFile, Buffer.from("logo image"));
+    fs.writeFileSync(
+      manifestFile,
+      JSON.stringify({
+        logo: "./images/logo.png",
+        hero: "./images/hero.webp",
+        "hero-small": "./images/hero.webp",
+      }),
+    );
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
+
+    const payloads: unknown[] = [];
+    let activeImageUploads = 0;
+    let maximumActiveImageUploads = 0;
+    const fetchImpl = async (
+      _input: string | URL | Request,
+      init?: RequestInit,
+    ): Promise<Response> => {
+      if (typeof init?.body !== "string") throw new Error("Expected a JSON request body.");
+      const payload = uploadPayloadSchema.parse(JSON.parse(init.body) as unknown);
+      payloads.push(payload);
+
+      if (payload.image !== undefined) {
+        activeImageUploads += 1;
+        maximumActiveImageUploads = Math.max(maximumActiveImageUploads, activeImageUploads);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        activeImageUploads -= 1;
+      }
+
+      const draftId =
+        payload.filename === "hero.webp"
+          ? "hero123abc45"
+          : payload.filename === "logo.png"
+            ? "logo123abc45"
+            : "page123abc45";
+      return uploadResponseFor(draftId);
+    };
+    const output = captureOutput();
+
+    await runCli(
+      ["upload", htmlFile, "--refs-file", manifestFile, "--ref", "avatar=abc123def456"],
+      { version: "0.1.0", statePaths, fetchImpl, output },
+    );
+
+    expect(maximumActiveImageUploads).toBe(2);
+    expect(payloads).toHaveLength(3);
+    const htmlPayload = uploadPayloadSchema.parse(payloads.at(-1));
+    expect(htmlPayload.html).toContain("refs/hero");
+    expect(htmlPayload.references).toEqual({
+      avatar: "abc123def456",
+      hero: "hero123abc45",
+      "hero-small": "hero123abc45",
+      logo: "logo123abc45",
+    });
+    expect(readDraftState(statePaths).files[heroFile]?.draftId).toBe("hero123abc45");
+    expect(readDraftState(statePaths).files[logoFile]?.draftId).toBe("logo123abc45");
+    expect(output.logs).toContain("Uploaded image reference hero, hero-small: hero123abc45");
+    expect(output.logs).toContain("URL: https://page123abc45.pushdraft.example");
+  });
+
+  test("limits concurrent manifest image uploads to four", async () => {
+    const homeDirectory = makeTemporaryDirectory();
+    const statePaths = createStatePaths(homeDirectory);
+    const htmlFile = path.join(homeDirectory, "gallery.html");
+    const manifestFile = path.join(homeDirectory, "pushdraft.assets.json");
+    const manifest: Record<string, string> = {};
+    fs.writeFileSync(htmlFile, "<title>Gallery</title>");
+    for (let index = 1; index <= 5; index += 1) {
+      const filename = `image-${index}.png`;
+      fs.writeFileSync(path.join(homeDirectory, filename), Buffer.from(`image ${index}`));
+      manifest[`image-${index}`] = filename;
+    }
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest));
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
+
+    let activeImageUploads = 0;
+    let maximumActiveImageUploads = 0;
+    await runCli(["upload", htmlFile, "--refs-file", manifestFile], {
+      version: "0.1.0",
+      statePaths,
+      fetchImpl: async (_input, init) => {
+        if (typeof init?.body !== "string") throw new Error("Expected a JSON request body.");
+        const payload = uploadPayloadSchema.parse(JSON.parse(init.body) as unknown);
+        if (payload.image === undefined) return uploadResponseFor("page123abc45");
+
+        activeImageUploads += 1;
+        maximumActiveImageUploads = Math.max(maximumActiveImageUploads, activeImageUploads);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        activeImageUploads -= 1;
+        const index = Number.parseInt(payload.filename?.match(/\d+/)?.[0] ?? "0", 10);
+        return uploadResponseFor(`img00000000${index}`);
+      },
+      output: captureOutput(),
+    });
+
+    expect(maximumActiveImageUploads).toBe(4);
+  });
+
+  test("rejects duplicate manifest and explicit reference names before uploading", async () => {
+    const homeDirectory = makeTemporaryDirectory();
+    const statePaths = createStatePaths(homeDirectory);
+    const htmlFile = path.join(homeDirectory, "gallery.html");
+    const imageFile = path.join(homeDirectory, "hero.png");
+    const manifestFile = path.join(homeDirectory, "pushdraft.assets.json");
+    fs.writeFileSync(htmlFile, '<img src="refs/hero">');
+    fs.writeFileSync(imageFile, Buffer.from("hero image"));
+    fs.writeFileSync(manifestFile, JSON.stringify({ hero: "./hero.png" }));
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
+
+    await expect(
+      runCli(["upload", htmlFile, "--refs-file", manifestFile, "--ref", "hero=q43kvvtxix1x"], {
+        version: "0.1.0",
+        statePaths,
+        fetchImpl: async () => {
+          throw new Error("The CLI should reject the upload before making a request.");
+        },
+        output: captureOutput(),
+      }),
+    ).rejects.toThrow("Duplicate reference name across --ref and --refs-file: hero");
+  });
+
+  test("keeps successful image mappings and skips HTML when a manifest upload fails", async () => {
+    const homeDirectory = makeTemporaryDirectory();
+    const statePaths = createStatePaths(homeDirectory);
+    const htmlFile = path.join(homeDirectory, "gallery.html");
+    const heroFile = path.join(homeDirectory, "hero.png");
+    const logoFile = path.join(homeDirectory, "logo.png");
+    const manifestFile = path.join(homeDirectory, "pushdraft.assets.json");
+    fs.writeFileSync(htmlFile, '<img src="refs/hero"><img src="refs/logo">');
+    fs.writeFileSync(heroFile, Buffer.from("hero image"));
+    fs.writeFileSync(logoFile, Buffer.from("logo image"));
+    fs.writeFileSync(manifestFile, JSON.stringify({ hero: "hero.png", logo: "logo.png" }));
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
+
+    const filenames: string[] = [];
+    await expect(
+      runCli(["upload", htmlFile, "--refs-file", manifestFile], {
+        version: "0.1.0",
+        statePaths,
+        fetchImpl: async (_input, init) => {
+          if (typeof init?.body !== "string") throw new Error("Expected a JSON request body.");
+          const payload = uploadPayloadSchema.parse(JSON.parse(init.body) as unknown);
+          filenames.push(payload.filename ?? "");
+          return payload.filename === "logo.png"
+            ? Response.json({ error: "Storage unavailable." }, { status: 503 })
+            : uploadResponseFor("hero123abc45");
+        },
+        output: captureOutput(),
+      }),
+    ).rejects.toThrow("The HTML draft was not uploaded");
+
+    expect(filenames.sort()).toEqual(["hero.png", "logo.png"]);
+    expect(readDraftState(statePaths).files[heroFile]?.draftId).toBe("hero123abc45");
+    expect(readDraftState(statePaths).files[logoFile]).toBeUndefined();
+  });
+
   test.each([
     ["png", "image/png"],
     ["jpg", "image/jpeg"],
@@ -396,6 +567,20 @@ function uploadResponse(versionNumber = 1): Response {
     requestId: null,
     publicUrl: "https://q43kvvtxix1x.pushdraft.example",
     rawUrl: "https://q43kvvtxix1x.pushdraft.example/raw",
+    warnings: [],
+  });
+}
+
+function uploadResponseFor(draftId: string, versionNumber = 1): Response {
+  return Response.json({
+    ok: true,
+    draftId,
+    versionId: `version_${versionNumber}`,
+    versionNumber,
+    title: "Draft",
+    requestId: null,
+    publicUrl: `https://${draftId}.pushdraft.example`,
+    rawUrl: `https://${draftId}.pushdraft.example/raw`,
     warnings: [],
   });
 }
