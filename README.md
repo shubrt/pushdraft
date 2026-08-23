@@ -26,19 +26,41 @@ npx pushdraft upload ./plan.html
 bunx pushdraft upload ./plan.html
 ```
 
-HTML drafts can reference the current version of an image draft by name:
+HTML drafts can reference the current version of an image draft by name. For
+an existing image draft, attach its ID directly:
 
 ```bash
 pushdraft upload ./hero.png
 pushdraft upload ./page.html --ref hero=<image-draft-id>
 ```
 
-The HTML uses a relative URL so current and historical page versions resolve
-their own reference mapping:
+For several local images, prepare a JSON manifest that maps each reference name
+to an image path:
+
+```json
+{
+  "hero": "./images/hero.webp",
+  "logo": "./images/logo.png",
+  "chart": "./images/chart.png"
+}
+```
+
+Paths are resolved relative to the manifest. One command uploads the unique
+images, four at a time, and then uploads the HTML with their draft IDs:
+
+```bash
+pushdraft upload ./page.html --refs-file ./pushdraft.assets.json
+```
+
+Use the reference names as relative URLs in the HTML:
 
 ```html
 <img src="refs/hero" alt="Hero" />
 ```
+
+Uploading the same local image path again updates its existing image draft.
+References always serve that image draft's latest version, including when the
+HTML is opened through a historical page-version URL.
 
 Run `npx pushdraft --help` for all commands and options.
 
@@ -47,7 +69,7 @@ Run `npx pushdraft --help` for all commands and options.
 This repository includes portable skills for agents that support the
 [Agent Skills](https://agentskills.io) format:
 
-- `pushdraft-write` creates and publishes self-contained HTML documents.
+- `pushdraft-write` creates and publishes HTML documents with optional local images.
 - `pushdraft-read` reads an existing Pushdraft URL through its raw endpoint.
 
 Install them from the repository with:

@@ -9,12 +9,14 @@ import {
   parseDraftsResponse,
   parseMeResponse,
   parseUploadResponse,
+  type UploadResponse,
 } from "./api-types.js";
 import { parseCliArgs } from "./args.js";
-import { CliError } from "./errors.js";
+import { CliError, errorMessage } from "./errors.js";
 import { formatDrafts } from "./format.js";
 import { requestJson, type Fetch } from "./http.js";
 import { collectCiMetadata, collectGitMetadata, sha256 } from "./metadata.js";
+import { readReferencesManifest, type LocalImageReference } from "./references-manifest.js";
 import {
   createStatePaths,
   fingerprintApiKey,
@@ -23,6 +25,7 @@ import {
   readDraftState,
   saveCredentials,
   writeDraftState,
+  type DraftState,
   type StatePaths,
 } from "./state.js";
 
@@ -147,6 +150,7 @@ interface UploadCommand {
   forceNew: boolean;
   description?: string;
   references?: Record<string, string>;
+  referencesFile?: string;
   apiUrl?: string;
 }
 
@@ -161,6 +165,33 @@ const imageMediaTypes = new Map<string, RasterImageMediaType>([
   [".webp", "image/webp"],
 ]);
 
+const MAX_PARALLEL_IMAGE_UPLOADS = 4;
+
+interface UploadEnvironment {
+  apiKey: string;
+  apiUrl: string;
+  apiKeyFingerprint: string;
+  accountId?: string;
+  fetchImpl: Fetch;
+  version: string;
+}
+
+interface ImageUploadPlan {
+  filename: string;
+  referenceNames: string[];
+}
+
+interface CompletedImageUpload {
+  plan: ImageUploadPlan;
+  previousDraftId: string | null;
+  result: UploadResponse;
+}
+
+interface FailedImageUpload {
+  plan: ImageUploadPlan;
+  error: unknown;
+}
+
 async function upload(
   command: UploadCommand,
   statePaths: StatePaths,
@@ -174,26 +205,180 @@ async function upload(
   const apiUrl = auth.apiUrl;
   const apiKeyFingerprint = fingerprintApiKey(apiKey);
   const file = readUploadFile(resolvedFile);
-  if (file.kind === "image" && command.references !== undefined) {
+  if (
+    file.kind === "image" &&
+    (command.references !== undefined || command.referencesFile !== undefined)
+  ) {
     throw new CliError("References can only be attached to HTML uploads.");
   }
+
+  const localReferences =
+    command.referencesFile === undefined ? [] : readReferencesManifest(command.referencesFile);
+  validateReferenceNames(command.references, localReferences);
+  const imagePlans = prepareImageUploads(localReferences);
   const draftState = readDraftState(statePaths);
+  const environment: UploadEnvironment = {
+    apiKey,
+    apiUrl,
+    apiKeyFingerprint,
+    accountId: auth.accountId,
+    fetchImpl,
+    version,
+  };
+
+  const { completed, failed } = await uploadReferencedImages(imagePlans, draftState, environment);
+  for (const upload of completed) {
+    storeDraftMapping(draftState, upload.plan.filename, upload.result, environment);
+  }
+  if (completed.length > 0) {
+    writeDraftState(statePaths, draftState);
+    logImageUploads(completed, output);
+  }
+  if (failed.length > 0) throw imageUploadError(failed);
+
+  const references = mergeReferences(command.references, completed);
   const draftId = command.forceNew
     ? null
     : (command.draftId ??
       mappedDraftId(draftState, resolvedFile, apiUrl, apiKeyFingerprint, auth.accountId) ??
       null);
+  const result = await uploadFile(
+    resolvedFile,
+    file,
+    draftId,
+    command.description,
+    references,
+    environment,
+  );
 
+  storeDraftMapping(draftState, resolvedFile, result, environment);
+  writeDraftState(statePaths, draftState);
+
+  output.log(draftId === null ? "Uploaded draft" : "Updated draft");
+  output.log(`URL: ${result.publicUrl}`);
+  output.log(`Raw ${file.kind === "html" ? "HTML" : "image"}: ${result.rawUrl}`);
+  output.log(`Draft ID: ${result.draftId}`);
+  output.log(`Version: ${result.versionNumber}`);
+  for (const warning of result.warnings) output.warn(`Warning: ${warning}`);
+}
+
+function validateReferenceNames(
+  explicitReferences: Record<string, string> | undefined,
+  localReferences: LocalImageReference[],
+): void {
+  if (explicitReferences === undefined) return;
+  const duplicate = localReferences.find((reference) =>
+    Object.hasOwn(explicitReferences, reference.name),
+  );
+  if (duplicate !== undefined) {
+    throw new CliError(`Duplicate reference name across --ref and --refs-file: ${duplicate.name}.`);
+  }
+}
+
+function prepareImageUploads(references: LocalImageReference[]): ImageUploadPlan[] {
+  const uploadsByFilename = new Map<string, ImageUploadPlan>();
+  for (const reference of references) {
+    const existing = uploadsByFilename.get(reference.filename);
+    if (existing !== undefined) {
+      existing.referenceNames.push(reference.name);
+      continue;
+    }
+
+    validateReferencedImage(reference);
+    uploadsByFilename.set(reference.filename, {
+      filename: reference.filename,
+      referenceNames: [reference.name],
+    });
+  }
+  return [...uploadsByFilename.values()];
+}
+
+async function uploadReferencedImages(
+  plans: ImageUploadPlan[],
+  draftState: DraftState,
+  environment: UploadEnvironment,
+): Promise<{ completed: CompletedImageUpload[]; failed: FailedImageUpload[] }> {
+  const completed: CompletedImageUpload[] = [];
+  const failed: FailedImageUpload[] = [];
+
+  for (let offset = 0; offset < plans.length; offset += MAX_PARALLEL_IMAGE_UPLOADS) {
+    const batch = plans.slice(offset, offset + MAX_PARALLEL_IMAGE_UPLOADS);
+    const results = await Promise.allSettled(
+      batch.map(async (plan) => {
+        const file = readUploadFile(plan.filename);
+        if (file.kind !== "image") {
+          throw new CliError(`Referenced file is no longer a supported image: ${plan.filename}`);
+        }
+        const previousDraftId =
+          mappedDraftId(
+            draftState,
+            plan.filename,
+            environment.apiUrl,
+            environment.apiKeyFingerprint,
+            environment.accountId,
+          ) ?? null;
+        const result = await uploadFile(
+          plan.filename,
+          file,
+          previousDraftId,
+          undefined,
+          undefined,
+          environment,
+        );
+        return { plan, previousDraftId, result };
+      }),
+    );
+
+    results.forEach((result, index) => {
+      const plan = batch[index];
+      if (plan === undefined) return;
+      if (result.status === "fulfilled") completed.push(result.value);
+      else failed.push({ plan, error: result.reason });
+    });
+  }
+
+  return { completed, failed };
+}
+
+function validateReferencedImage(reference: LocalImageReference): void {
+  if (!imageMediaTypes.has(path.extname(reference.filename).toLowerCase())) {
+    throw new CliError(
+      `Reference "${reference.name}" must point to a .png, .jpg, .jpeg, or .webp file: ${reference.filename}`,
+    );
+  }
+
+  try {
+    fs.accessSync(reference.filename, fs.constants.R_OK);
+    const file = fs.statSync(reference.filename);
+    if (!file.isFile()) throw new Error("Not a regular file.");
+    if (file.size === 0) throw new CliError(`Image file is empty: ${reference.filename}`);
+  } catch (error) {
+    if (error instanceof CliError) throw error;
+    if (!fs.existsSync(reference.filename)) {
+      throw new CliError(`File does not exist: ${reference.filename}`);
+    }
+    throw new CliError(`Could not read file: ${reference.filename}`, { cause: error });
+  }
+}
+
+async function uploadFile(
+  resolvedFile: string,
+  file: UploadFile,
+  draftId: string | null,
+  description: string | undefined,
+  references: Record<string, string> | undefined,
+  environment: UploadEnvironment,
+): Promise<UploadResponse> {
   const metadata = {
     ...collectGitMetadata(path.dirname(resolvedFile)),
     ...collectCiMetadata(),
-    cliVersion: version,
+    cliVersion: environment.version,
     fileSha256: sha256(file.kind === "html" ? file.html : file.bytes),
   };
   const sharedPayload = {
     filename: path.basename(resolvedFile),
     draftId,
-    description: command.description,
+    description,
     metadata,
   };
   const payload =
@@ -201,45 +386,81 @@ async function upload(
       ? ({
           ...sharedPayload,
           html: file.html,
-          ...(command.references === undefined ? {} : { references: command.references }),
+          ...(references === undefined ? {} : { references }),
         } satisfies UploadPayloadInput)
       : ({
           ...sharedPayload,
           image: { mediaType: file.mediaType, base64: file.bytes.toString("base64") },
         } satisfies UploadPayloadInput);
 
-  const { body, response } = await requestJson(fetchImpl, `${apiUrl}/api/uploads`, {
-    method: "POST",
-    headers: {
-      ...authenticatedHeaders(apiKey, version),
-      "Content-Type": "application/json",
+  const { body, response } = await requestJson(
+    environment.fetchImpl,
+    `${environment.apiUrl}/api/uploads`,
+    {
+      method: "POST",
+      headers: {
+        ...authenticatedHeaders(environment.apiKey, environment.version),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     },
-    body: JSON.stringify(payload),
-  });
+  );
   if (!response.ok) throw new CliError(apiErrorMessage(body, "Upload failed."));
 
   const result = parseUploadResponse(body);
   if (result === null) throw new CliError("The server returned an unexpected upload response.");
-  const rawUrl = result.rawUrl;
+  return result;
+}
 
-  draftState.files[resolvedFile] = {
+function storeDraftMapping(
+  draftState: DraftState,
+  filename: string,
+  result: UploadResponse,
+  environment: UploadEnvironment,
+): void {
+  draftState.files[filename] = {
     draftId: result.draftId,
     publicUrl: result.publicUrl,
-    rawUrl,
+    rawUrl: result.rawUrl,
     latestVersionNumber: result.versionNumber,
     updatedAt: new Date().toISOString(),
-    apiUrl,
-    apiKeyFingerprint,
-    accountId: auth.accountId,
+    apiUrl: environment.apiUrl,
+    apiKeyFingerprint: environment.apiKeyFingerprint,
+    accountId: environment.accountId,
   };
-  writeDraftState(statePaths, draftState);
+}
 
-  output.log(draftId === null ? "Uploaded draft" : "Updated draft");
-  output.log(`URL: ${result.publicUrl}`);
-  output.log(`Raw ${file.kind === "html" ? "HTML" : "image"}: ${rawUrl}`);
-  output.log(`Draft ID: ${result.draftId}`);
-  output.log(`Version: ${result.versionNumber}`);
-  for (const warning of result.warnings) output.warn(`Warning: ${warning}`);
+function mergeReferences(
+  explicitReferences: Record<string, string> | undefined,
+  uploads: CompletedImageUpload[],
+): Record<string, string> | undefined {
+  if (explicitReferences === undefined && uploads.length === 0) return undefined;
+  const references = { ...explicitReferences };
+  for (const upload of uploads) {
+    for (const name of upload.plan.referenceNames) references[name] = upload.result.draftId;
+  }
+  return references;
+}
+
+function logImageUploads(uploads: CompletedImageUpload[], output: CliOutput): void {
+  for (const upload of uploads) {
+    const action = upload.previousDraftId === null ? "Uploaded" : "Updated";
+    const names = upload.plan.referenceNames.join(", ");
+    output.log(`${action} image reference ${names}: ${upload.result.draftId}`);
+    for (const warning of upload.result.warnings) {
+      output.warn(`Warning for image reference ${names}: ${warning}`);
+    }
+  }
+}
+
+function imageUploadError(failures: FailedImageUpload[]): CliError {
+  const details = failures.map((failure) => {
+    const names = failure.plan.referenceNames.join(", ");
+    return `${names} (${failure.plan.filename}): ${errorMessage(failure.error)}`;
+  });
+  return new CliError(
+    `Failed to upload ${failures.length} referenced image${failures.length === 1 ? "" : "s"}. The HTML draft was not uploaded.\n- ${details.join("\n- ")}`,
+  );
 }
 
 async function listDrafts(

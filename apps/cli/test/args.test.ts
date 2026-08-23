@@ -23,6 +23,8 @@ describe("parseCliArgs", () => {
         "hero-image=q43kvvtxix1x",
         "--ref",
         "chart=abc123def456",
+        "--refs-file",
+        "pushdraft.assets.json",
         "--api-url",
         "https://pushdraft.example",
       ]),
@@ -36,6 +38,7 @@ describe("parseCliArgs", () => {
         "hero-image": "q43kvvtxix1x",
         chart: "abc123def456",
       },
+      referencesFile: "pushdraft.assets.json",
       apiUrl: "https://pushdraft.example",
     });
   });
@@ -85,6 +88,8 @@ describe("parseCliArgs", () => {
     expect(command).toMatchObject({ kind: "help" });
     if (command.kind !== "help") throw new Error("Expected upload help.");
     expect(command.text).toContain("--ref <name=id>");
+    expect(command.text).toContain("--refs-file <path>");
+    expect(command.text).toContain('{"hero":"./images/hero.webp"');
     expect(command.text).toContain(".png, .jpg, .jpeg, .webp");
   });
 });
