@@ -6,9 +6,8 @@ entire server, API and CLI codebase is public, and drafts can be protected with
 authentication.
 
 Production runs at `https://pushdraft.dev`, with drafts on wildcard subdomains.
-Every successful push to `main` deploys to the isolated staging environment at
-`https://staging.pushdraft.dev`. A matching `v<version>` tag deploys that commit
-to production and then publishes the CLI with the same version.
+Every push to `main` triggers a Railway deployment to production. The repository
+has no staging environment or CI pipelines.
 
 ## Packages
 
@@ -119,10 +118,6 @@ in each package's `test/` directory and run from the repository root:
 vp test run     # single pass
 vp test watch   # watch mode
 ```
-
-App and CLI releases use one tag and npm trusted publishing from GitHub Actions.
-See [`docs/releasing-cli.md`](docs/releasing-cli.md) for environment setup and
-the release flow.
 
 The API keeps every browser page and draft private. Browser access uses a Shoo
 session plus a one-time subdomain handshake. Agents use a Bearer API key for
