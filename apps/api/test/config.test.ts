@@ -50,3 +50,50 @@ describe("public URL resolution", () => {
     expect(config.publicUrl.origin).toBe("https://pushdraft.dev");
   });
 });
+
+const SEED_ENV: NodeJS.ProcessEnv = {
+  ...BASE_ENV,
+  PREVIEW_SEED_ACCOUNT_ID: "acct_preview",
+  PREVIEW_SEED_ACCOUNT_NAME: "Preview",
+  PREVIEW_SEED_API_KEY_HASH: "AB".repeat(32),
+};
+
+describe("preview seed resolution", () => {
+  test("is disabled without a Railway environment", () => {
+    expect(loadConfig({ ...SEED_ENV }).previewSeed).toBeUndefined();
+  });
+
+  test("is disabled in the Railway production environment", () => {
+    const config = loadConfig({ ...SEED_ENV, RAILWAY_ENVIRONMENT_NAME: "production" });
+    expect(config.previewSeed).toBeUndefined();
+  });
+
+  test("is disabled in preview environments without seed variables", () => {
+    const config = loadConfig({ ...BASE_ENV, RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12" });
+    expect(config.previewSeed).toBeUndefined();
+  });
+
+  test("normalizes the seed values in preview environments", () => {
+    const config = loadConfig({ ...SEED_ENV, RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12" });
+    expect(config.previewSeed).toEqual({
+      accountId: "acct_preview",
+      accountName: "Preview",
+      apiKeyHash: "ab".repeat(32),
+    });
+  });
+
+  test("rejects partially configured seed variables", () => {
+    const env: NodeJS.ProcessEnv = { ...SEED_ENV, RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12" };
+    delete env.PREVIEW_SEED_ACCOUNT_NAME;
+    expect(() => loadConfig(env)).toThrow(/must be set together/);
+  });
+
+  test("rejects values that are not a sha256 hex hash", () => {
+    const env = {
+      ...SEED_ENV,
+      RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12",
+      PREVIEW_SEED_API_KEY_HASH: "pushdraft_plaintext-key",
+    };
+    expect(() => loadConfig(env)).toThrow(/sha256/);
+  });
+});

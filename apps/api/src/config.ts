@@ -1,5 +1,11 @@
 const DEFAULT_LOCAL_URL = "http://localhost:3003";
 
+export type PreviewSeed = {
+  accountId: string;
+  accountName: string;
+  apiKeyHash: string;
+};
+
 export type AppConfig = {
   port: number;
   databaseUrl: string;
@@ -8,6 +14,7 @@ export type AppConfig = {
   shooBaseUrl: URL;
   maxHtmlBytes: number;
   isProduction: boolean;
+  previewSeed?: PreviewSeed;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -22,7 +29,32 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     shooBaseUrl: parseHttpsUrl(env.SHOO_BASE_URL ?? "https://shoo.dev", "SHOO_BASE_URL"),
     maxHtmlBytes: readPositiveInteger(env.MAX_HTML_BYTES, 512 * 1024),
     isProduction,
+    previewSeed: resolvePreviewSeed(env),
   };
+}
+
+// Preview environments start with an empty database, so the CLI key from
+// production would be rejected there. The PREVIEW_SEED_* variables are set on
+// the production service, copied verbatim into every PR environment, and only
+// honored outside production. They carry the sha256 key hash, never the key.
+function resolvePreviewSeed(env: NodeJS.ProcessEnv): PreviewSeed | undefined {
+  const railwayEnvironment = env.RAILWAY_ENVIRONMENT_NAME?.trim();
+  if (!railwayEnvironment || railwayEnvironment === "production") return undefined;
+
+  const accountId = env.PREVIEW_SEED_ACCOUNT_ID?.trim();
+  const accountName = env.PREVIEW_SEED_ACCOUNT_NAME?.trim();
+  const apiKeyHash = env.PREVIEW_SEED_API_KEY_HASH?.trim().toLowerCase();
+  if (!accountId && !accountName && !apiKeyHash) return undefined;
+  if (!accountId || !accountName || !apiKeyHash) {
+    throw new Error(
+      "PREVIEW_SEED_ACCOUNT_ID, PREVIEW_SEED_ACCOUNT_NAME, and PREVIEW_SEED_API_KEY_HASH must be set together.",
+    );
+  }
+  if (!/^[0-9a-f]{64}$/.test(apiKeyHash)) {
+    throw new Error("PREVIEW_SEED_API_KEY_HASH must be a hex-encoded sha256 hash.");
+  }
+
+  return { accountId, accountName, apiKeyHash };
 }
 
 // Railway PR environments copy production variables verbatim, so PUBLIC_URL

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
 
+import type { PreviewSeed } from "../config";
 import type { Database } from "../db/database";
 import { randomToken, sha256 } from "../lib/crypto";
 import { newInternalId } from "../lib/ids";
@@ -84,6 +85,21 @@ export async function findApiKeyByToken(
   return row
     ? { id: row.id, accountId: row.account_id, name: row.name, accountName: row.account_name }
     : null;
+}
+
+export async function seedPreviewAccount(database: Database, seed: PreviewSeed): Promise<void> {
+  await database.query(
+    "INSERT INTO accounts (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+    [seed.accountId, seed.accountName],
+  );
+  await database.query(
+    `
+      INSERT INTO api_keys (id, account_id, name, key_hash)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (key_hash) DO NOTHING
+    `,
+    [newInternalId(), seed.accountId, "preview-seed", seed.apiKeyHash],
+  );
 }
 
 export async function createApiKey(
