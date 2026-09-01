@@ -12,7 +12,7 @@ export type AppConfig = {
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const isProduction = env.NODE_ENV === "production";
-  const publicUrl = parsePublicUrl(env.PUBLIC_URL ?? DEFAULT_LOCAL_URL, isProduction);
+  const publicUrl = parsePublicUrl(resolvePublicUrl(env), isProduction);
 
   return {
     port: readPositiveInteger(env.PORT, 3003),
@@ -23,6 +23,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     maxHtmlBytes: readPositiveInteger(env.MAX_HTML_BYTES, 512 * 1024),
     isProduction,
   };
+}
+
+// Railway PR environments copy production variables verbatim, so PUBLIC_URL
+// would point at production there. Outside the production environment the
+// Railway-generated service domain is the canonical origin instead.
+function resolvePublicUrl(env: NodeJS.ProcessEnv): string {
+  const railwayEnvironment = env.RAILWAY_ENVIRONMENT_NAME?.trim();
+  const railwayDomain = env.RAILWAY_PUBLIC_DOMAIN?.trim();
+  if (railwayEnvironment && railwayEnvironment !== "production" && railwayDomain) {
+    return `https://${railwayDomain}`;
+  }
+  return env.PUBLIC_URL ?? DEFAULT_LOCAL_URL;
 }
 
 function parsePublicUrl(value: string, isProduction: boolean): URL {

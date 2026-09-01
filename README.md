@@ -7,7 +7,10 @@ authentication.
 
 Production runs at `https://pushdraft.dev`, with drafts on wildcard subdomains.
 Every push to `main` triggers a Railway deployment to production. The repository
-has no staging environment or CI pipelines.
+has no staging environment or CI pipelines. Pull requests get an ephemeral
+Railway PR environment with its own Postgres instance and a generated
+`up.railway.app` domain; because that domain has no wildcard subdomains, draft
+delivery there works only through the apex bridge routes.
 
 ## Packages
 
