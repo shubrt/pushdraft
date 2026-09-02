@@ -11,6 +11,9 @@ describe("database schema", () => {
     const drafts = tableSection(schema, "drafts");
     const references = tableSection(schema, "draft_version_references");
     const tickets = tableSection(schema, "draft_access_tickets");
+    const shares = tableSection(schema, "draft_shares");
+    const shareReferences = tableSection(schema, "draft_share_references");
+    const shareTickets = tableSection(schema, "draft_share_access_tickets");
 
     expect(files).toMatch(/media_type\s+TEXT\s+NOT NULL/i);
     expect(files).toMatch(/storage_backend\s+TEXT\s+NOT NULL/i);
@@ -31,6 +34,24 @@ describe("database schema", () => {
     expect(references).not.toMatch(/target_version_id/i);
     expect(tickets).toMatch(/version_number\s+INTEGER/i);
     expect(tickets).not.toMatch(/^\s*target_path\s+TEXT/im);
+
+    expect(shares).toMatch(/draft_version_id\s+TEXT\s+NOT NULL/i);
+    expect(shares).toMatch(
+      /FOREIGN KEY\s*\(draft_id,\s*draft_version_id\)\s*REFERENCES\s+draft_versions\s*\(draft_id,\s*id\)/i,
+    );
+    expect(shares).toMatch(/token_hash\s+TEXT\s+NOT NULL\s+UNIQUE/i);
+    expect(shares).toMatch(/expires_at\s+TIMESTAMPTZ\s+NOT NULL/i);
+    expect(shares).toMatch(/revoked_at\s+TIMESTAMPTZ/i);
+    expect(shares).not.toMatch(/^\s*token\s+TEXT/im);
+    expect(shareReferences).toMatch(/target_version_id\s+TEXT\s+NOT NULL/i);
+    expect(shareReferences).toMatch(
+      /FOREIGN KEY\s*\(target_draft_id,\s*target_version_id\)\s*REFERENCES\s+draft_versions\s*\(draft_id,\s*id\)/i,
+    );
+    expect(shareReferences).toMatch(/PRIMARY KEY\s*\(share_id,\s*name\)/i);
+    expect(shareTickets).toMatch(
+      /share_id\s+TEXT\s+NOT NULL\s+REFERENCES\s+draft_shares\s*\(id\)/i,
+    );
+    expect(shareTickets).toMatch(/expires_at\s+TIMESTAMPTZ\s+NOT NULL/i);
   });
 
   test("uses idempotent guards for repeatable migration DDL", async () => {
@@ -46,6 +67,9 @@ describe("database schema", () => {
     expect(schema).toMatch(
       /IF\s+NOT\s+EXISTS\s*\([\s\S]*?pg_constraint[\s\S]*?ALTER\s+TABLE\s+drafts[\s\S]*?ADD\s+CONSTRAINT\s+drafts_current_version_id_fkey/i,
     );
+    expect(schema).toContain("draft_versions_draft_id_id_key");
+    expect(schema).toContain("draft_shares_version_fkey");
+    expect(schema).toContain("draft_share_references_target_version_fkey");
   });
 });
 
