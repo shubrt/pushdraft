@@ -88,6 +88,20 @@ describe("preview seed resolution", () => {
     expect(() => loadConfig(env)).toThrow(/must be set together/);
   });
 
+  test("carries the PII subject when configured", () => {
+    const config = loadConfig({
+      ...SEED_ENV,
+      RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12",
+      PREVIEW_SEED_PII_SUBJECT: "pii_stable",
+    });
+    expect(config.previewSeed?.piiSubject).toBe("pii_stable");
+  });
+
+  test("omits the PII subject when the variable is not set", () => {
+    const config = loadConfig({ ...SEED_ENV, RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12" });
+    expect(config.previewSeed?.piiSubject).toBeUndefined();
+  });
+
   test("rejects values that are not a sha256 hex hash", () => {
     const env = {
       ...SEED_ENV,

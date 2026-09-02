@@ -12,7 +12,9 @@ Railway PR environment with its own Postgres instance and a generated
 `up.railway.app` domain. On boot, preview environments seed the account and
 API-key hash from the `PREVIEW_SEED_*` variables, so the production CLI key
 works there and switching targets is just `pushdraft --api-url <preview-url>`
-(or the `API_URL` environment variable). Draft content is served only on the
+(or the `API_URL` environment variable). Shoo issues a different pairwise
+subject per origin, so a preview sign-in matches the seeded account through the
+stable `PREVIEW_SEED_PII_SUBJECT` instead of the production subject. Draft content is served only on the
 per-draft subdomain host, which the generated domain cannot provide, so a
 preview exercises the API and the CLI while reading a draft in a browser stays
 a production concern.

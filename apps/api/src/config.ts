@@ -4,6 +4,7 @@ export type PreviewSeed = {
   accountId: string;
   accountName: string;
   apiKeyHash: string;
+  piiSubject?: string;
 };
 
 export type AppConfig = {
@@ -54,7 +55,14 @@ function resolvePreviewSeed(env: NodeJS.ProcessEnv): PreviewSeed | undefined {
     throw new Error("PREVIEW_SEED_API_KEY_HASH must be a hex-encoded sha256 hash.");
   }
 
-  return { accountId, accountName, apiKeyHash };
+  // Shoo issues a different pairwise subject per origin, so a preview sign-in
+  // can never be matched by its production subject. The PII subject is stable
+  // across origins; when it matches, the sign-in adopts the seeded account
+  // instead of creating an empty one.
+  const piiSubject = env.PREVIEW_SEED_PII_SUBJECT?.trim();
+  return piiSubject
+    ? { accountId, accountName, apiKeyHash, piiSubject }
+    : { accountId, accountName, apiKeyHash };
 }
 
 // Railway PR environments copy production variables verbatim, so PUBLIC_URL
