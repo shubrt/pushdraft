@@ -168,13 +168,25 @@ async function handleApex(
         verifier: state.verifier,
         redirectUri: new URL("/auth/callback", config.publicUrl).toString(),
       });
-      const identity = await findOrCreateAccountForIdentity(database, "shoo", claims.pairwise_sub, {
-        email: claimText(claims.email),
-        emailVerified: typeof claims.email_verified === "boolean" ? claims.email_verified : null,
-        displayName: claimText(claims.name),
-        pictureUrl: claimText(claims.picture),
-        piiSubject: claimText(claims.pii_sub),
-      });
+      const piiSubject = claimText(claims.pii_sub);
+      const seed = config.previewSeed;
+      const adoptAccountId =
+        seed?.piiSubject !== undefined && piiSubject !== null && piiSubject === seed.piiSubject
+          ? seed.accountId
+          : undefined;
+      const identity = await findOrCreateAccountForIdentity(
+        database,
+        "shoo",
+        claims.pairwise_sub,
+        {
+          email: claimText(claims.email),
+          emailVerified: typeof claims.email_verified === "boolean" ? claims.email_verified : null,
+          displayName: claimText(claims.name),
+          pictureUrl: claimText(claims.picture),
+          piiSubject,
+        },
+        adoptAccountId,
+      );
       const created = await createWebSession(database, identity, readSessionToken(request.headers));
       return redirect(new URL(state.next, config.publicUrl).toString(), 303, [
         clearAuthStateCookie(config),

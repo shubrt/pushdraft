@@ -7,7 +7,21 @@ authentication.
 
 Production runs at `https://pushdraft.dev`, with drafts on wildcard subdomains.
 Every push to `main` triggers a Railway deployment to production. The repository
-has no staging environment or CI pipelines.
+has no staging environment or CI pipelines. Pull requests get an ephemeral
+Railway PR environment with its own Postgres instance and a generated
+`up.railway.app` domain. On boot, preview environments seed the account and
+API-key hash from the `PREVIEW_SEED_*` variables, so the production CLI key
+works there and switching targets is just `pushdraft --api-url <preview-url>`
+(or the `API_URL` environment variable). Shoo issues a different pairwise
+subject per origin, so a preview sign-in matches the seeded account through the
+stable `PREVIEW_SEED_PII_SUBJECT` instead of the production subject. Draft
+content is served only on the per-draft subdomain host, which the generated
+domain cannot provide, so the `preview-domains` workflow gives every PR
+environment its own apex and wildcard domain under `preview.pushdraft.dev`
+(Railway custom domains plus DNS-only Cloudflare records, torn down on close;
+`tools/preview-domains.mjs` does the work and also runs locally). The
+`PREVIEW_PUBLIC_URL_TEMPLATE` variable makes the preview generate its links on
+that domain, so drafts render in previews exactly as in production.
 
 ## Packages
 
