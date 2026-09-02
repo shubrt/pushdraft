@@ -9,11 +9,13 @@ Production runs at `https://pushdraft.dev`, with drafts on wildcard subdomains.
 Every push to `main` triggers a Railway deployment to production. The repository
 has no staging environment or CI pipelines. Pull requests get an ephemeral
 Railway PR environment with its own Postgres instance and a generated
-`up.railway.app` domain; because that domain has no wildcard subdomains, draft
-delivery there works only through the apex bridge routes. On boot, preview
-environments seed the account and API-key hash from the `PREVIEW_SEED_*`
-variables, so the production CLI key works there and switching targets is just
-`pushdraft --api-url <preview-url>` (or the `API_URL` environment variable).
+`up.railway.app` domain. On boot, preview environments seed the account and
+API-key hash from the `PREVIEW_SEED_*` variables, so the production CLI key
+works there and switching targets is just `pushdraft --api-url <preview-url>`
+(or the `API_URL` environment variable). Draft content is served only on the
+per-draft subdomain host, which the generated domain cannot provide, so a
+preview exercises the API and the CLI while reading a draft in a browser stays
+a production concern.
 
 ## Packages
 
