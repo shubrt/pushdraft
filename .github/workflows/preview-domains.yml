@@ -1,0 +1,46 @@
+name: preview-domains
+
+# Railway creates a PR environment per pull request, but draft delivery needs
+# wildcard subdomains, which the generated up.railway.app domain cannot
+# provide. This workflow gives each PR environment its own apex and wildcard
+# domain under preview.pushdraft.dev and cleans the DNS records up on close.
+
+on:
+  pull_request:
+    types: [opened, reopened, closed]
+
+concurrency: preview-domains-${{ github.event.number }}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  provision:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Provision preview domains
+        env:
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node tools/preview-domains.mjs up "pushdraft-pr-${{ github.event.number }}"
+      - name: Comment preview URL
+        if: github.event.action == 'opened'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr comment "${{ github.event.number }}" --repo "${{ github.repository }}" \
+            --body "Preview: https://pushdraft-pr-${{ github.event.number }}.preview.pushdraft.dev"
+
+  teardown:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove preview DNS records
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
+        run: node tools/preview-domains.mjs down "pushdraft-pr-${{ github.event.number }}"

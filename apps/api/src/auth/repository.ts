@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
 
+import type { PreviewSeed } from "../config";
 import type { Database } from "../db/database";
 import { randomToken, sha256 } from "../lib/crypto";
 import { newInternalId } from "../lib/ids";
@@ -86,6 +87,21 @@ export async function findApiKeyByToken(
     : null;
 }
 
+export async function seedPreviewAccount(database: Database, seed: PreviewSeed): Promise<void> {
+  await database.query(
+    "INSERT INTO accounts (id, name) VALUES ($1, $2) ON CONFLICT (id) DO NOTHING",
+    [seed.accountId, seed.accountName],
+  );
+  await database.query(
+    `
+      INSERT INTO api_keys (id, account_id, name, key_hash)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (key_hash) DO NOTHING
+    `,
+    [newInternalId(), seed.accountId, "preview-seed", seed.apiKeyHash],
+  );
+}
+
 export async function createApiKey(
   database: Database,
   accountId: string,
@@ -149,6 +165,7 @@ export async function findOrCreateAccountForIdentity(
   provider: string,
   subject: string,
   profile: IdentityProfile,
+  adoptAccountId?: string,
 ): Promise<AccountIdentity> {
   return database.transaction(async (client) => {
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))", [
@@ -168,13 +185,25 @@ export async function findOrCreateAccountForIdentity(
       [provider, subject],
     );
 
-    const accountId = existing.rows[0]?.account_id ?? `acct_${newInternalId()}`;
+    const adopted =
+      existing.rowCount === 0 && adoptAccountId !== undefined
+        ? await client.query("SELECT id FROM accounts WHERE id = $1", [adoptAccountId])
+        : null;
+    const adoptedId = adopted?.rows[0]?.id as string | undefined;
+    const accountId = existing.rows[0]?.account_id ?? adoptedId ?? `acct_${newInternalId()}`;
     const accountName = profile.displayName ?? profile.email ?? `pushdraft ${subject.slice(-6)}`;
     if (existing.rowCount === 0) {
-      await client.query("INSERT INTO accounts (id, name) VALUES ($1, $2)", [
-        accountId,
-        accountName,
-      ]);
+      if (adoptedId !== undefined) {
+        await client.query("UPDATE accounts SET name = $2, updated_at = now() WHERE id = $1", [
+          accountId,
+          accountName,
+        ]);
+      } else {
+        await client.query("INSERT INTO accounts (id, name) VALUES ($1, $2)", [
+          accountId,
+          accountName,
+        ]);
+      }
       await client.query(
         `
           INSERT INTO identities (

@@ -1,5 +1,12 @@
 const DEFAULT_LOCAL_URL = "http://localhost:3003";
 
+export type PreviewSeed = {
+  accountId: string;
+  accountName: string;
+  apiKeyHash: string;
+  piiSubject?: string;
+};
+
 export type AppConfig = {
   port: number;
   databaseUrl: string;
@@ -8,11 +15,12 @@ export type AppConfig = {
   shooBaseUrl: URL;
   maxHtmlBytes: number;
   isProduction: boolean;
+  previewSeed?: PreviewSeed;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const isProduction = env.NODE_ENV === "production";
-  const publicUrl = parsePublicUrl(env.PUBLIC_URL ?? DEFAULT_LOCAL_URL, isProduction);
+  const publicUrl = parsePublicUrl(resolvePublicUrl(env), isProduction);
 
   return {
     port: readPositiveInteger(env.PORT, 3003),
@@ -22,7 +30,55 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     shooBaseUrl: parseHttpsUrl(env.SHOO_BASE_URL ?? "https://shoo.dev", "SHOO_BASE_URL"),
     maxHtmlBytes: readPositiveInteger(env.MAX_HTML_BYTES, 512 * 1024),
     isProduction,
+    previewSeed: resolvePreviewSeed(env),
   };
+}
+
+// Preview environments start with an empty database, so the CLI key from
+// production would be rejected there. The PREVIEW_SEED_* variables are set on
+// the production service, copied verbatim into every PR environment, and only
+// honored outside production. They carry the sha256 key hash, never the key.
+function resolvePreviewSeed(env: NodeJS.ProcessEnv): PreviewSeed | undefined {
+  const railwayEnvironment = env.RAILWAY_ENVIRONMENT_NAME?.trim();
+  if (!railwayEnvironment || railwayEnvironment === "production") return undefined;
+
+  const accountId = env.PREVIEW_SEED_ACCOUNT_ID?.trim();
+  const accountName = env.PREVIEW_SEED_ACCOUNT_NAME?.trim();
+  const apiKeyHash = env.PREVIEW_SEED_API_KEY_HASH?.trim().toLowerCase();
+  if (!accountId && !accountName && !apiKeyHash) return undefined;
+  if (!accountId || !accountName || !apiKeyHash) {
+    throw new Error(
+      "PREVIEW_SEED_ACCOUNT_ID, PREVIEW_SEED_ACCOUNT_NAME, and PREVIEW_SEED_API_KEY_HASH must be set together.",
+    );
+  }
+  if (!/^[0-9a-f]{64}$/.test(apiKeyHash)) {
+    throw new Error("PREVIEW_SEED_API_KEY_HASH must be a hex-encoded sha256 hash.");
+  }
+
+  // Shoo issues a different pairwise subject per origin, so a preview sign-in
+  // can never be matched by its production subject. The PII subject is stable
+  // across origins; when it matches, the sign-in adopts the seeded account
+  // instead of creating an empty one.
+  const piiSubject = env.PREVIEW_SEED_PII_SUBJECT?.trim();
+  return piiSubject
+    ? { accountId, accountName, apiKeyHash, piiSubject }
+    : { accountId, accountName, apiKeyHash };
+}
+
+// Railway PR environments copy production variables verbatim, so PUBLIC_URL
+// would point at production there. Outside the production environment the
+// canonical origin is the per-environment custom domain when the template is
+// configured (draft delivery needs its wildcard subdomains), and the
+// Railway-generated service domain otherwise.
+function resolvePublicUrl(env: NodeJS.ProcessEnv): string {
+  const railwayEnvironment = env.RAILWAY_ENVIRONMENT_NAME?.trim();
+  if (railwayEnvironment && railwayEnvironment !== "production") {
+    const template = env.PREVIEW_PUBLIC_URL_TEMPLATE?.trim();
+    if (template) return template.replaceAll("{env}", railwayEnvironment);
+    const railwayDomain = env.RAILWAY_PUBLIC_DOMAIN?.trim();
+    if (railwayDomain) return `https://${railwayDomain}`;
+  }
+  return env.PUBLIC_URL ?? DEFAULT_LOCAL_URL;
 }
 
 function parsePublicUrl(value: string, isProduction: boolean): URL {
