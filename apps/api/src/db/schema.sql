@@ -108,12 +108,72 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'draft_versions_draft_id_id_key'
+  ) THEN
+    ALTER TABLE draft_versions
+      ADD CONSTRAINT draft_versions_draft_id_id_key UNIQUE (draft_id, id);
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS draft_version_references (
   source_version_id TEXT NOT NULL REFERENCES draft_versions(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   target_draft_id TEXT NOT NULL REFERENCES drafts(id),
   PRIMARY KEY (source_version_id, name)
 );
+
+CREATE TABLE IF NOT EXISTS draft_shares (
+  id TEXT PRIMARY KEY,
+  draft_id TEXT NOT NULL REFERENCES drafts(id) ON DELETE CASCADE,
+  draft_version_id TEXT NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  revoked_at TIMESTAMPTZ,
+  CHECK (expires_at > created_at),
+  CONSTRAINT draft_shares_version_fkey
+    FOREIGN KEY (draft_id, draft_version_id)
+    REFERENCES draft_versions(draft_id, id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS draft_share_references (
+  share_id TEXT NOT NULL REFERENCES draft_shares(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  target_draft_id TEXT NOT NULL REFERENCES drafts(id) ON DELETE CASCADE,
+  target_version_id TEXT NOT NULL,
+  PRIMARY KEY (share_id, name),
+  CONSTRAINT draft_share_references_target_version_fkey
+    FOREIGN KEY (target_draft_id, target_version_id)
+    REFERENCES draft_versions(draft_id, id)
+    ON DELETE CASCADE
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'draft_shares_version_fkey'
+  ) THEN
+    ALTER TABLE draft_shares
+      ADD CONSTRAINT draft_shares_version_fkey
+      FOREIGN KEY (draft_id, draft_version_id)
+      REFERENCES draft_versions(draft_id, id)
+      ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'draft_share_references_target_version_fkey'
+  ) THEN
+    ALTER TABLE draft_share_references
+      ADD CONSTRAINT draft_share_references_target_version_fkey
+      FOREIGN KEY (target_draft_id, target_version_id)
+      REFERENCES draft_versions(draft_id, id)
+      ON DELETE CASCADE;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS upload_events (
   id TEXT PRIMARY KEY,
@@ -134,6 +194,14 @@ CREATE TABLE IF NOT EXISTS draft_access_tickets (
   version_number INTEGER CHECK (version_number IS NULL OR version_number > 0),
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS draft_share_access_tickets (
+  token_hash TEXT PRIMARY KEY,
+  share_id TEXT NOT NULL REFERENCES draft_shares(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (expires_at > created_at)
 );
 
 -- Existing pre-release databases used target_path before the destination was
@@ -162,6 +230,14 @@ CREATE INDEX IF NOT EXISTS draft_versions_draft_id_version_idx
   ON draft_versions(draft_id, version_number DESC);
 CREATE INDEX IF NOT EXISTS draft_version_references_target_draft_id_idx
   ON draft_version_references(target_draft_id);
+CREATE INDEX IF NOT EXISTS draft_shares_draft_id_created_at_idx
+  ON draft_shares(draft_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS draft_shares_expires_at_idx
+  ON draft_shares(expires_at);
+CREATE INDEX IF NOT EXISTS draft_share_references_target_draft_id_idx
+  ON draft_share_references(target_draft_id);
 CREATE INDEX IF NOT EXISTS upload_events_draft_id_idx ON upload_events(draft_id);
 CREATE INDEX IF NOT EXISTS draft_access_tickets_expires_at_idx
   ON draft_access_tickets(expires_at);
+CREATE INDEX IF NOT EXISTS draft_share_access_tickets_expires_at_idx
+  ON draft_share_access_tickets(expires_at);

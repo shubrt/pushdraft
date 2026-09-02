@@ -5,6 +5,7 @@ import { deriveSigningSecret, signToken, verifyToken } from "../lib/crypto";
 export const SESSION_COOKIE = "__Host-pushdraft_session";
 export const AUTH_STATE_COOKIE = "__Host-pushdraft_auth_state";
 export const DRAFT_SESSION_COOKIE = "__Host-pushdraft_draft";
+export const DRAFT_SHARE_SESSION_COOKIE = "__Host-pushdraft_share";
 export const CSRF_COOKIE = "__Host-pushdraft_csrf";
 
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
@@ -30,6 +31,12 @@ type AuthState = {
 type DraftGrant = {
   purpose: "draft-session";
   webSessionId: string;
+  draftId: string;
+};
+
+export type DraftShareGrant = {
+  purpose: "draft-share-session";
+  shareId: string;
   draftId: string;
 };
 
@@ -126,6 +133,53 @@ export function readDraftSession(
 ): DraftGrant | null {
   const token = readCookie(headers, DRAFT_SESSION_COOKIE);
   return token ? readDraftGrant(config, token, expectedDraftId, "draft-session") : null;
+}
+
+export function createDraftShareSessionCookie(
+  config: AppConfig,
+  values: Pick<DraftShareGrant, "shareId" | "draftId">,
+  ttlSeconds: number,
+): string {
+  if (!Number.isSafeInteger(ttlSeconds) || ttlSeconds <= 0) {
+    throw new Error("Draft share cookie TTL must be a positive integer.");
+  }
+  const value = signToken(
+    { ...values, purpose: "draft-share-session" },
+    deriveSigningSecret(config.sessionSecret, "draft-share-session"),
+    ttlSeconds,
+  );
+  return serializeHostCookie(
+    DRAFT_SHARE_SESSION_COOKIE,
+    value,
+    cookieOptions(config, ttlSeconds, "Strict"),
+  );
+}
+
+export function readDraftShareSession(
+  config: AppConfig,
+  headers: Headers,
+  expectedDraftId: string,
+): DraftShareGrant | null {
+  const token = readCookie(headers, DRAFT_SHARE_SESSION_COOKIE);
+  if (!token) return null;
+  const payload = verifyToken<DraftShareGrant>(
+    token,
+    deriveSigningSecret(config.sessionSecret, "draft-share-session"),
+  );
+  if (
+    !payload ||
+    payload.purpose !== "draft-share-session" ||
+    payload.draftId !== expectedDraftId ||
+    typeof payload.shareId !== "string" ||
+    !payload.shareId
+  ) {
+    return null;
+  }
+  return {
+    purpose: payload.purpose,
+    shareId: payload.shareId,
+    draftId: payload.draftId,
+  };
 }
 
 function readDraftGrant(

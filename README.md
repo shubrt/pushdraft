@@ -77,6 +77,16 @@ HTML is opened through a historical page-version URL.
 
 Run `npx pushdraft --help` for all commands and options.
 
+## Share links
+
+The draft detail page can create guest links that expire after 1 hour, 1 day,
+7 days or 30 days. A link is pinned to the current draft version and snapshots
+the current versions of referenced images. It can be revoked at any time, and
+the recipient does not need a Pushdraft account.
+
+Share links are bearer credentials. Anyone who receives one can open the shared
+version until the link expires or its owner revokes it.
+
 ## Agent skills
 
 This repository includes portable skills for agents that support the

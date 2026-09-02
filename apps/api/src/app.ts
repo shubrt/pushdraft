@@ -22,10 +22,12 @@ import {
   clearSessionCookie,
   createAuthStateCookie,
   createCsrfCookie,
+  createDraftShareSessionCookie,
   createDraftSessionCookie,
   createSessionCookie,
   readAuthState,
   readCsrfToken,
+  readDraftShareSession,
   readDraftSession,
   readSessionToken,
   type WebSession,
@@ -52,12 +54,28 @@ import {
   safeApexPath,
 } from "./lib/urls";
 import {
+  consumeDraftShareAccessTicket,
+  createDraftShare,
+  createDraftShareAccessTicket,
+  findActiveDraftShare,
+  getStoredSharedContent,
+  getStoredSharedReference,
+  isDraftShareTtlSeconds,
+  listActiveDraftShares,
+  revokeDraftShare,
+} from "./shares/repository";
+import {
   renderApiKey,
   renderAuthError,
   renderCliAuth,
   renderDraftBridge,
   renderDraftDetail,
   renderDraftReady,
+  renderDraftShareBridge,
+  renderDraftShareCreated,
+  renderDraftShareForm,
+  renderDraftShareReady,
+  renderDraftShareUnavailable,
   renderDrafts,
   renderHome,
   renderNotFound,
@@ -68,6 +86,10 @@ type Dependencies = {
   config: AppConfig;
   database: Database;
 };
+
+type DraftRequestAccess =
+  | { kind: "owner"; accountId: string }
+  | { kind: "share"; shareId: string; versionNumber: number };
 
 export function createApp({ config, database }: Dependencies) {
   return new Elysia()
@@ -205,6 +227,34 @@ async function handleApex(
     return handleApi(request, url, config, database);
   }
 
+  const sharedDraftMatch = url.pathname.match(/^\/s\/([A-Za-z0-9_-]{43})$/);
+  if (request.method === "GET" && sharedDraftMatch?.[1]) {
+    const ticket = await createDraftShareAccessTicket(database, sharedDraftMatch[1]);
+    if (!ticket) {
+      return html(
+        renderDraftShareUnavailable(config.publicUrl.origin),
+        404,
+        [],
+        shareResponseHeaders(),
+      );
+    }
+    const action = draftUrl(config, ticket.draftId, "/_share/exchange");
+    const nonce = randomToken(16);
+    return html(renderDraftShareBridge(action, ticket.token, nonce), 200, [], {
+      ...shareResponseHeaders(),
+      "content-security-policy": bridgeContentSecurityPolicy(action, nonce),
+    });
+  }
+
+  if (request.method === "GET" && url.pathname.startsWith("/s/")) {
+    return html(
+      renderDraftShareUnavailable(config.publicUrl.origin),
+      404,
+      [],
+      shareResponseHeaders(),
+    );
+  }
+
   const session = await readWebSession(database, request);
 
   if (request.method === "POST" && url.pathname === "/auth/sign-out") {
@@ -234,10 +284,77 @@ async function handleApex(
   const detailMatch = url.pathname.match(/^\/drafts\/([a-z0-9]{12})$/);
   if (request.method === "GET" && detailMatch?.[1]) {
     if (!session) return html(renderSignIn(url.pathname));
-    const detail = await getDraftDetail(database, config, session.accountId, detailMatch[1]);
+    const [detail, shares] = await Promise.all([
+      getDraftDetail(database, config, session.accountId, detailMatch[1]),
+      listActiveDraftShares(database, session.accountId, detailMatch[1]),
+    ]);
     return detail
-      ? html(renderDraftDetail(session, readCsrfToken(request.headers) ?? "", detail))
+      ? html(renderDraftDetail(session, readCsrfToken(request.headers) ?? "", detail, shares))
       : html(renderNotFound(), 404);
+  }
+
+  const shareFormMatch = url.pathname.match(/^\/drafts\/([a-z0-9]{12})\/share$/);
+  if (request.method === "GET" && shareFormMatch?.[1]) {
+    if (!session) return html(renderSignIn(url.pathname));
+    const detail = await getDraftDetail(database, config, session.accountId, shareFormMatch[1]);
+    return detail && !detail.draft.disabled && detail.draft.latestVersionNumber !== null
+      ? html(renderDraftShareForm(session, readCsrfToken(request.headers) ?? "", detail))
+      : html(renderNotFound(), 404);
+  }
+
+  const createShareMatch = url.pathname.match(/^\/drafts\/([a-z0-9]{12})\/shares$/);
+  if (request.method === "POST" && createShareMatch?.[1]) {
+    if (!session) return html(renderSignIn(`/drafts/${createShareMatch[1]}/share`));
+    const form = await readForm(request);
+    if (!validBrowserMutation(request, config, session, form.get("csrf"))) {
+      return response("Forbidden.", 403, "text/plain; charset=utf-8");
+    }
+    const ttlSeconds = parseDraftShareTtl(form.get("ttlSeconds"));
+    if (ttlSeconds === null) {
+      return response("Invalid share expiration.", 422, "text/plain; charset=utf-8");
+    }
+    let created;
+    try {
+      created = await createDraftShare(
+        database,
+        config,
+        session.accountId,
+        createShareMatch[1],
+        ttlSeconds,
+      );
+    } catch (error) {
+      if (isStatusError(error, 422) && error instanceof Error) {
+        return response(error.message, 422, "text/plain; charset=utf-8");
+      }
+      throw error;
+    }
+    if (!created) return html(renderNotFound(), 404);
+    const nonce = randomToken(16);
+    return html(
+      renderDraftShareCreated(session, readCsrfToken(request.headers) ?? "", created, nonce),
+      201,
+      [],
+      { "content-security-policy": apexScriptContentSecurityPolicy(nonce) },
+    );
+  }
+
+  const revokeShareMatch = url.pathname.match(
+    /^\/drafts\/([a-z0-9]{12})\/shares\/([A-Za-z0-9]{20})\/revoke$/,
+  );
+  if (request.method === "POST" && revokeShareMatch?.[1] && revokeShareMatch[2]) {
+    if (!session) return html(renderSignIn(`/drafts/${revokeShareMatch[1]}`));
+    const form = await readForm(request);
+    if (!validBrowserMutation(request, config, session, form.get("csrf"))) {
+      return response("Forbidden.", 403, "text/plain; charset=utf-8");
+    }
+    const revoked = await revokeDraftShare(
+      database,
+      session.accountId,
+      revokeShareMatch[1],
+      revokeShareMatch[2],
+    );
+    if (!revoked) return html(renderNotFound(), 404);
+    return redirect(new URL(`/drafts/${revokeShareMatch[1]}`, config.publicUrl).toString());
   }
 
   if (request.method === "GET" && url.pathname === "/cli/auth") {
@@ -406,6 +523,37 @@ async function handleDraftHost(
     );
   }
 
+  if (request.method === "POST" && url.pathname === "/_share/exchange") {
+    if (request.headers.get("origin") !== apexOrigin(config)) {
+      return response("Unauthorized.", 401, "text/plain; charset=utf-8");
+    }
+    const form = await readForm(request);
+    const ticketValue = form.get("ticket");
+    if (!ticketValue) return response("Unauthorized.", 401, "text/plain; charset=utf-8");
+    const ticket = await consumeDraftShareAccessTicket(database, ticketValue, draftId);
+    const ttlSeconds = ticket ? secondsUntil(ticket.expiresAt) : null;
+    if (!ticket || ttlSeconds === null) {
+      return response("Unauthorized.", 401, "text/plain; charset=utf-8");
+    }
+    const targetPath = `/v/${ticket.versionNumber}/`;
+    const nonce = randomToken(16);
+    return html(
+      renderDraftShareReady(targetPath, nonce),
+      200,
+      [
+        createDraftShareSessionCookie(
+          config,
+          { shareId: ticket.shareId, draftId: ticket.draftId },
+          ttlSeconds,
+        ),
+      ],
+      {
+        "content-security-policy": draftReadyContentSecurityPolicy(nonce),
+        ...shareResponseHeaders(),
+      },
+    );
+  }
+
   const route = parseDraftContentRoute(url.pathname);
   if (!route) return html(renderNotFound(), 404);
   if (request.method !== "GET" && request.method !== "HEAD") {
@@ -421,18 +569,40 @@ async function handleDraftHost(
   }
 
   const authHeader = request.headers.get("authorization");
-  let accountId: string | null = null;
+  let access: DraftRequestAccess | null = null;
   if (authHeader !== null) {
     const auth = await readBearerAuth(database, request);
     if (!auth) return bearerError();
-    accountId = auth.accountId;
+    access = { kind: "owner", accountId: auth.accountId };
   } else {
     const grant = readDraftSession(config, request.headers, draftId);
     const session = grant ? await findActiveWebSessionById(database, grant.webSessionId) : null;
-    accountId = session?.accountId ?? null;
+    if (session) {
+      access = { kind: "owner", accountId: session.accountId };
+    } else {
+      const shareGrant = readDraftShareSession(config, request.headers, draftId);
+      const share = shareGrant
+        ? await findActiveDraftShare(database, shareGrant.shareId, draftId)
+        : null;
+      if (shareGrant && !share) {
+        return html(
+          renderDraftShareUnavailable(config.publicUrl.origin),
+          404,
+          [],
+          shareResponseHeaders(),
+        );
+      }
+      if (share) {
+        access = {
+          kind: "share",
+          shareId: share.shareId,
+          versionNumber: share.versionNumber,
+        };
+      }
+    }
   }
 
-  if (!accountId) {
+  if (!access) {
     if (route.kind === "reference" || route.raw) return bearerError();
     const bridgeUrl = new URL(`/${draftId}`, config.publicUrl);
     if (route.versionNumber !== undefined) {
@@ -441,10 +611,32 @@ async function handleDraftHost(
     return redirect(bridgeUrl.toString());
   }
 
+  if (
+    access.kind === "share" &&
+    route.kind === "content" &&
+    !route.raw &&
+    route.versionNumber === undefined
+  ) {
+    return redirect(draftUrl(config, draftId, `/v/${access.versionNumber}/`), 303);
+  }
+  if (access.kind === "share" && !sharedRouteAllows(route, access.versionNumber)) {
+    return html(renderNotFound(), 404);
+  }
+
   const content =
-    route.kind === "reference"
-      ? await getStoredReference(database, accountId, draftId, route.versionNumber, route.name)
-      : await getStoredContent(database, accountId, draftId, route.versionNumber);
+    access.kind === "share"
+      ? route.kind === "reference"
+        ? await getStoredSharedReference(database, access.shareId, draftId, route.name)
+        : await getStoredSharedContent(database, access.shareId, draftId)
+      : route.kind === "reference"
+        ? await getStoredReference(
+            database,
+            access.accountId,
+            draftId,
+            route.versionNumber,
+            route.name,
+          )
+        : await getStoredContent(database, access.accountId, draftId, route.versionNumber);
   if (!content) return html(renderNotFound(), 404);
 
   const headers = new Headers({
@@ -457,6 +649,9 @@ async function handleDraftHost(
     "x-postplan-draft-id": content.draftId,
     "x-postplan-draft-version": String(content.versionNumber),
   });
+  if (access.kind === "share") {
+    headers.set("x-robots-tag", "noindex, nofollow, noarchive");
+  }
   if (request.method === "HEAD") return new Response(null, { status: 200, headers });
   const body = content.bytes.buffer.slice(
     content.bytes.byteOffset,
@@ -545,6 +740,18 @@ function parsePositiveVersion(value: string | null): number | null {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
+function parseDraftShareTtl(value: string | null): number | null {
+  if (value === null || !/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return isDraftShareTtlSeconds(parsed) ? parsed : null;
+}
+
+function secondsUntil(value: string): number | null {
+  const remainingMilliseconds = new Date(value).getTime() - Date.now();
+  if (!Number.isFinite(remainingMilliseconds) || remainingMilliseconds <= 0) return null;
+  return Math.max(1, Math.ceil(remainingMilliseconds / 1_000));
+}
+
 function draftContentSecurityPolicy(): string {
   return [
     "default-src 'none'",
@@ -587,6 +794,13 @@ function uploadRequestLimit(config: AppConfig): number {
 type DraftContentRoute =
   | { kind: "content"; raw: boolean; versionNumber?: number }
   | { kind: "reference"; raw: false; name: string; versionNumber?: number };
+
+function sharedRouteAllows(route: DraftContentRoute, versionNumber: number): boolean {
+  if (route.kind === "content") {
+    return !route.raw && route.versionNumber === versionNumber;
+  }
+  return route.versionNumber === undefined || route.versionNumber === versionNumber;
+}
 
 function parseDraftContentRoute(pathname: string): DraftContentRoute | null {
   if (pathname === "/") return { kind: "content", raw: false };
@@ -674,6 +888,22 @@ function apexContentSecurityPolicy(): string {
     "base-uri 'none'",
     "frame-ancestors 'none'",
   ].join("; ");
+}
+
+function apexScriptContentSecurityPolicy(nonce: string): string {
+  return [
+    "default-src 'none'",
+    `script-src 'nonce-${nonce}'`,
+    "style-src 'unsafe-inline'",
+    "img-src https: data:",
+    "form-action 'self'",
+    "base-uri 'none'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+}
+
+function shareResponseHeaders(): Record<string, string> {
+  return { "x-robots-tag": "noindex, nofollow, noarchive" };
 }
 
 function claimText(value: unknown): string | null {

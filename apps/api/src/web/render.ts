@@ -1,6 +1,7 @@
 import type { ContentDescriptor, DraftDetailResponse, DraftSummary } from "@pushdraft/contracts";
 
 import type { WebSession } from "../auth/session";
+import type { CreatedDraftShare, DraftShareSummary } from "../shares/repository";
 
 type ActiveNavigation = "drafts" | "cli";
 
@@ -70,6 +71,7 @@ export function renderDraftDetail(
   session: WebSession,
   csrfToken: string,
   detail: DraftDetailResponse,
+  shares: DraftShareSummary[] = [],
 ): string {
   const versionRows = detail.versions
     .map(
@@ -80,6 +82,24 @@ export function renderDraftDetail(
       </div>`,
     )
     .join("");
+  const shareRows = shares
+    .map(
+      (share) => `<div class="share-row">
+        <div class="share-details">
+          <strong>v${share.versionNumber}</strong>
+          <span>expires <time datetime="${escapeHtml(share.expiresAt)}">${formatExactDateTime(share.expiresAt)}</time></span>
+        </div>
+        <form method="post" action="/drafts/${encodeURIComponent(detail.draft.draftId)}/shares/${encodeURIComponent(share.id)}/revoke">
+          <input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">
+          <button class="link" type="submit">Revoke</button>
+        </form>
+      </div>`,
+    )
+    .join("");
+  const shareAction =
+    detail.draft.disabled || detail.draft.latestVersionNumber === null
+      ? ""
+      : `<a href="/drafts/${encodeURIComponent(detail.draft.draftId)}/share">Share draft</a>`;
 
   return page(
     `${detail.draft.title} · pushdraft`,
@@ -89,12 +109,79 @@ export function renderDraftDetail(
         <p class="eyebrow">/DRAFTS/${escapeHtml(detail.draft.draftId.toUpperCase())}</p>
         <h1>${escapeHtml(detail.draft.title)}</h1>
         ${detail.draft.description ? `<p class="lede">${escapeHtml(detail.draft.description)}</p>` : ""}
-        <p class="detail-action"><a href="/${detail.draft.draftId}">Open current draft ↗</a></p>
+        <p class="detail-action detail-actions"><a href="/${detail.draft.draftId}">Open current draft ↗</a>${shareAction}</p>
       </div>
+      <section class="shares-section">
+        <div class="section-heading"><h2>Share links</h2><span>${shares.length} active</span></div>
+        <div class="share-list">${shareRows || '<p class="empty-state">No active share links.</p>'}</div>
+      </section>
       <section class="versions-section">
         <div class="section-heading"><h2>Version history</h2><span>${detail.versions.length} version${detail.versions.length === 1 ? "" : "s"}</span></div>
         <div class="version-list">${versionRows || '<p class="empty-state">No versions yet.</p>'}</div>
       </section>
+    </main>`,
+  );
+}
+
+export function renderDraftShareForm(
+  session: WebSession,
+  csrfToken: string,
+  detail: DraftDetailResponse,
+): string {
+  const versionNumber = detail.draft.latestVersionNumber;
+  const version =
+    versionNumber === null ? "No version available" : `v${versionNumber} · current version`;
+
+  return page(
+    `Share ${detail.draft.title} · pushdraft`,
+    `${header(session, csrfToken, "drafts")}<main class="screen share-screen page-shell">
+      <a class="back-link" href="/drafts/${encodeURIComponent(detail.draft.draftId)}">← Draft details</a>
+      <p class="eyebrow">/DRAFTS/${escapeHtml(detail.draft.draftId.toUpperCase())}/SHARE</p>
+      <h1>Share draft</h1>
+      <p class="lede">Anyone with this link can open the current version without signing in. It stops working when it expires or you revoke it.</p>
+      <div class="share-summary"><span>Version</span><strong>${version}</strong></div>
+      <form class="share-form" method="post" action="/drafts/${encodeURIComponent(detail.draft.draftId)}/shares">
+        <input type="hidden" name="csrf" value="${escapeHtml(csrfToken)}">
+        <div class="field">
+          <label for="share-ttl">Expires after</label>
+          <select id="share-ttl" name="ttlSeconds">
+            <option value="3600">1 hour</option>
+            <option value="86400">1 day</option>
+            <option value="604800" selected>7 days</option>
+            <option value="2592000">30 days</option>
+          </select>
+        </div>
+        <button type="submit"${versionNumber === null ? " disabled" : ""}>Create share link</button>
+      </form>
+    </main>`,
+  );
+}
+
+export function renderDraftShareCreated(
+  session: WebSession,
+  csrfToken: string,
+  created: CreatedDraftShare,
+  nonce: string,
+): string {
+  return page(
+    "Share link created · pushdraft",
+    `${header(session, csrfToken, "drafts")}<main class="screen share-screen page-shell">
+      <a class="back-link" href="/drafts/${encodeURIComponent(created.draftId)}">← Draft details</a>
+      <p class="eyebrow">SHARE LINK CREATED</p>
+      <h1>Copy this link.</h1>
+      <p class="lede">This link is shown once. It opens v${created.versionNumber} without signing in.</p>
+      <label class="field-label" for="share-url">Share link</label>
+      <div class="copy-row">
+        <input class="share-url" id="share-url" type="url" value="${escapeHtml(created.url)}" readonly spellcheck="false">
+        <button id="copy-share-link" type="button" hidden>Copy link</button>
+      </div>
+      <p class="copy-status" id="copy-status" role="status" aria-live="polite">Select the link and copy it.</p>
+      <dl class="share-facts">
+        <div><dt>Version</dt><dd>v${created.versionNumber}</dd></div>
+        <div><dt>Expires</dt><dd><time datetime="${escapeHtml(created.expiresAt)}">${formatExactDateTime(created.expiresAt)}</time></dd></div>
+      </dl>
+      <p><a href="/drafts/${encodeURIComponent(created.draftId)}">Back to draft details</a></p>
+      <script nonce="${escapeHtml(nonce)}">const input=document.getElementById("share-url");const button=document.getElementById("copy-share-link");const status=document.getElementById("copy-status");button.hidden=false;button.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(input.value);status.textContent="Link copied."}catch{input.focus();input.select();status.textContent="Could not copy. Press Ctrl+C or Command+C."}})</script>
     </main>`,
   );
 }
@@ -163,7 +250,28 @@ export function renderDraftBridge(action: string, ticket: string, nonce: string)
 export function renderDraftReady(targetPath: string, nonce: string): string {
   return page(
     "Opening draft · pushdraft",
-    `<main class="center page-shell"><div class="center-content"><p class="eyebrow">PRIVATE DRAFT</p><h1>Opening draft.</h1><p class="lede">Authentication complete.</p><p><a href="${escapeHtml(targetPath)}">Open draft</a></p><script nonce="${escapeHtml(nonce)}">window.location.replace(${JSON.stringify(targetPath)})</script></div></main>`,
+    `<main class="center page-shell"><div class="center-content"><p class="eyebrow">PRIVATE DRAFT</p><h1>Opening draft.</h1><p class="lede">Authentication complete.</p><p><a href="${escapeHtml(targetPath)}">Open draft</a></p><script nonce="${escapeHtml(nonce)}">window.location.replace(${scriptJson(targetPath)})</script></div></main>`,
+  );
+}
+
+export function renderDraftShareBridge(action: string, ticket: string, nonce: string): string {
+  return page(
+    "Opening shared draft · pushdraft",
+    `${publicHeader()}<main class="center page-shell"><div class="center-content"><p class="eyebrow">SHARED DRAFT</p><h1>Opening draft.</h1><p class="lede">Continue to the shared document.</p><form id="share-bridge" method="post" action="${escapeHtml(action)}"><input type="hidden" name="ticket" value="${escapeHtml(ticket)}"><button type="submit">Open shared draft</button></form><script nonce="${escapeHtml(nonce)}">history.replaceState(null,"","/share");document.getElementById("share-bridge").requestSubmit()</script></div></main>`,
+  );
+}
+
+export function renderDraftShareReady(targetPath: string, nonce: string): string {
+  return page(
+    "Opening shared draft · pushdraft",
+    `<main class="center page-shell"><div class="center-content"><p class="eyebrow">SHARED DRAFT</p><h1>Opening draft.</h1><p class="lede">Share link accepted.</p><p><a href="${escapeHtml(targetPath)}">Open shared draft</a></p><script nonce="${escapeHtml(nonce)}">window.location.replace(${scriptJson(targetPath)})</script></div></main>`,
+  );
+}
+
+export function renderDraftShareUnavailable(apexUrl = ""): string {
+  return page(
+    "Share unavailable · pushdraft",
+    `${publicHeader(apexUrl)}<main class="center page-shell"><div class="center-content"><p class="eyebrow">SHARE LINK</p><h1>This link is unavailable.</h1><p class="lede">It may have expired or the owner revoked it.</p><p><a href="${escapeHtml(apexPath(apexUrl, "/"))}">Return home</a></p></div></main>`,
   );
 }
 
@@ -174,8 +282,12 @@ export function renderNotFound(): string {
   );
 }
 
-function publicHeader(): string {
-  return `<header class="site-header"><div class="site-header-inner"><a class="brand" href="/" aria-label="pushdraft home">pushdraft</a><nav aria-label="Main navigation"><a href="/drafts">My drafts</a><a href="/cli/auth">CLI setup</a></nav></div></header>`;
+function publicHeader(apexUrl = ""): string {
+  return `<header class="site-header"><div class="site-header-inner"><a class="brand" href="${escapeHtml(apexPath(apexUrl, "/"))}" aria-label="pushdraft home">pushdraft</a><nav aria-label="Main navigation"><a href="${escapeHtml(apexPath(apexUrl, "/drafts"))}">My drafts</a><a href="${escapeHtml(apexPath(apexUrl, "/cli/auth"))}">CLI setup</a></nav></div></header>`;
+}
+
+function apexPath(apexUrl: string, path: string): string {
+  return apexUrl ? `${apexUrl.replace(/\/$/, "")}${path}` : path;
 }
 
 function header(
@@ -266,6 +378,29 @@ function formatDateTime(value: string): string {
     : `${date} · ${time}`;
 }
 
+function formatExactDateTime(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return escapeHtml(value);
+  const day = String(parsed.getUTCDate()).padStart(2, "0");
+  const month = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ][parsed.getUTCMonth()];
+  const hours = String(parsed.getUTCHours()).padStart(2, "0");
+  const minutes = String(parsed.getUTCMinutes()).padStart(2, "0");
+  return `${day} ${month} ${parsed.getUTCFullYear()} · ${hours}:${minutes} UTC`;
+}
+
 function formatFileKind(kind: ContentDescriptor["kind"]): string {
   return kind.toUpperCase();
 }
@@ -288,16 +423,24 @@ function safePictureUrl(value: string | null): string | null {
   }
 }
 
+function scriptJson(value: string): string {
+  return JSON.stringify(value)
+    .replaceAll("<", "\\u003c")
+    .replaceAll("\u2028", "\\u2028")
+    .replaceAll("\u2029", "\\u2029");
+}
+
 function page(title: string, body: string): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000000"><title>${escapeHtml(title)}</title><style>
     :root{color-scheme:dark;--black:#000;--ink:#f4f4f0;--muted:#92928b;--line:#292927;--surface:#0b0b0a;--accent:#dfff00}
     *{box-sizing:border-box}
+    [hidden]{display:none!important}
     html{min-width:320px;background:var(--black)}
     body{min-height:100vh;margin:0;background:var(--black);color:var(--ink);font:15px/1.5 "Avenir Next",Avenir,"Segoe UI",Arial,sans-serif;-webkit-font-smoothing:antialiased}
     ::selection{background:var(--accent);color:var(--black)}
     a,.link{color:var(--accent);text-underline-offset:3px}
     a:hover,.link:hover{text-decoration-thickness:2px}
-    a:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
+    a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
     h1,h2,p{margin-top:0}
     h1,h2,strong,.draft-title{font-weight:700}
     code,pre,.eyebrow,.draft-meta,.version-row,.key-row,.fine-print{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
@@ -346,11 +489,33 @@ function page(title: string, body: string): string {
     .eyebrow{margin-bottom:13px;color:var(--muted);font-size:10px;letter-spacing:.08em}
     .lede{max-width:560px;margin-bottom:24px;color:var(--muted);font-size:16px}
     .detail-action{margin:0}
+    .detail-actions{display:flex;gap:22px;flex-wrap:wrap}
     .section-heading{min-height:45px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:20px}
     .section-heading h2{margin:0;font-size:18px}
     .section-heading span{color:var(--muted);font:11px/1.4 "SFMono-Regular",Consolas,"Liberation Mono",monospace}
     .version-row{min-height:42px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:48px minmax(0,1fr) auto;align-items:center;gap:18px;color:var(--muted);font-size:11px}
     .version-file{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .shares-section{margin-bottom:52px}
+    .share-row{min-height:52px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:26px}
+    .share-details{display:flex;align-items:baseline;gap:16px;min-width:0}
+    .share-details strong{color:var(--accent)}
+    .share-details span{color:var(--muted);font:11px/1.4 "SFMono-Regular",Consolas,"Liberation Mono",monospace}
+    .share-screen{max-width:760px;padding-top:52px}
+    .share-screen h1{margin-bottom:14px;font-size:clamp(34px,5vw,50px);line-height:.98;letter-spacing:-.055em}
+    .share-summary{max-width:520px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:13px 0;display:flex;justify-content:space-between;gap:24px}
+    .share-summary span,.field-label{color:var(--muted);font-size:12px}
+    .share-form{max-width:520px;margin-top:30px}
+    .field{margin-bottom:24px}
+    .field label,.field-label{display:block;margin-bottom:7px}
+    .field select,.share-url{width:100%;border:1px solid var(--line);border-radius:0;background:var(--surface);color:var(--ink);padding:11px 12px;font:13px/1.3 "SFMono-Regular",Consolas,"Liberation Mono",monospace}
+    button:disabled{cursor:not-allowed;opacity:.45}
+    .copy-row{display:flex;align-items:stretch;gap:10px}
+    .share-url{min-width:0;color:var(--accent)}
+    .copy-status{min-height:22px;margin:8px 0 30px;color:var(--muted);font-size:11px}
+    .share-facts{max-width:520px;margin:0 0 30px;border-top:1px solid var(--line)}
+    .share-facts div{border-bottom:1px solid var(--line);padding:11px 0;display:grid;grid-template-columns:90px minmax(0,1fr);gap:18px}
+    .share-facts dt{color:var(--muted);font-size:12px}
+    .share-facts dd{margin:0;font:12px/1.5 "SFMono-Regular",Consolas,"Liberation Mono",monospace}
     .cli-screen{max-width:760px;padding-top:72px}
     .cli-screen>.lede{margin-bottom:28px}
     .primary-form{margin:0 0 54px}
@@ -387,12 +552,15 @@ function page(title: string, body: string): string {
       .key-row{grid-template-columns:1fr auto;gap:5px 16px;padding:10px 0}
       .key-used{grid-column:1}
       .key-row form{grid-column:2;grid-row:1 / span 2}
+      .share-screen{padding-top:40px}
     }
     @media(max-width:430px){
       .account-email{display:none}
       .screen-title{font-size:28px}
       .repository-heading{align-items:flex-start;flex-direction:column;gap:3px}
       .section-heading{align-items:flex-start;flex-direction:column;justify-content:center;gap:2px;padding:9px 0}
+      .share-details{align-items:flex-start;flex-direction:column;gap:2px;padding:10px 0}
+      .copy-row{align-items:stretch;flex-direction:column}
     }
   </style></head><body>${body}</body></html>`;
 }

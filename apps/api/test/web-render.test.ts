@@ -2,7 +2,16 @@ import { describe, expect, test } from "vite-plus/test";
 import type { DraftDetailResponse, DraftSummary } from "@pushdraft/contracts";
 
 import type { WebSession } from "../src/auth/session";
-import { renderCliAuth, renderDraftDetail, renderDrafts } from "../src/web/render";
+import {
+  renderCliAuth,
+  renderDraftDetail,
+  renderDraftShareBridge,
+  renderDraftShareCreated,
+  renderDraftShareForm,
+  renderDraftShareReady,
+  renderDraftShareUnavailable,
+  renderDrafts,
+} from "../src/web/render";
 
 const SESSION: WebSession = {
   id: "session_render",
@@ -28,6 +37,37 @@ const DRAFT: DraftSummary = {
   disabled: false,
   publicUrl: "https://nok4tarxkb27.pushdraft.example",
   rawUrl: "https://nok4tarxkb27.pushdraft.example/raw",
+};
+
+const DETAIL: DraftDetailResponse = {
+  ok: true,
+  draft: DRAFT,
+  versions: [
+    {
+      versionId: "version_render",
+      versionNumber: 3,
+      createdAt: "2026-08-13T16:07:00.000Z",
+      publicUrl: "https://nok4tarxkb27.pushdraft.example/v/3",
+      rawUrl: "https://nok4tarxkb27.pushdraft.example/v/3/raw",
+      file: {
+        fileId: "file_render",
+        filename: "plan.pdf",
+        byteSize: 2048,
+        sha256: "a".repeat(64),
+        content: { kind: "pdf", mediaType: "application/pdf" },
+      },
+      metadata: {
+        gitBranch: null,
+        gitCommitSha: null,
+        gitCommitSubject: null,
+        gitDirty: null,
+        cliVersion: null,
+        ciProvider: null,
+        ciRunUrl: null,
+        ciActor: null,
+      },
+    },
+  ],
 };
 
 describe("web rendering", () => {
@@ -57,41 +97,99 @@ describe("web rendering", () => {
   });
 
   test("renders future file kinds through the separated version descriptor", () => {
-    const detail: DraftDetailResponse = {
-      ok: true,
-      draft: DRAFT,
-      versions: [
-        {
-          versionId: "version_render",
-          versionNumber: 3,
-          createdAt: "2026-08-13T16:07:00.000Z",
-          publicUrl: "https://nok4tarxkb27.pushdraft.example/v/3",
-          rawUrl: "https://nok4tarxkb27.pushdraft.example/v/3/raw",
-          file: {
-            fileId: "file_render",
-            filename: "plan.pdf",
-            byteSize: 2048,
-            sha256: "a".repeat(64),
-            content: { kind: "pdf", mediaType: "application/pdf" },
-          },
-          metadata: {
-            gitBranch: null,
-            gitCommitSha: null,
-            gitCommitSubject: null,
-            gitDirty: null,
-            cliVersion: null,
-            ciProvider: null,
-            ciRunUrl: null,
-            ciActor: null,
-          },
-        },
-      ],
-    };
-
-    const rendered = renderDraftDetail(SESSION, "csrf", detail);
+    const rendered = renderDraftDetail(SESSION, "csrf", DETAIL);
 
     expect(rendered).toContain("plan.pdf · PDF · 2.0 KB");
     expect(rendered).toContain('aria-current="page" href="/drafts"');
+  });
+
+  test("renders active share links with exact expiry and protected revoke forms", () => {
+    const rendered = renderDraftDetail(SESSION, 'csrf"><script>alert(1)</script>', DETAIL, [
+      {
+        id: 'share/id"',
+        draftId: DRAFT.draftId,
+        versionNumber: 3,
+        createdAt: "2026-09-01T12:30:00.000Z",
+        expiresAt: "2026-09-08T12:30:00.000Z",
+      },
+    ]);
+
+    expect(rendered).toContain(`href="/drafts/${DRAFT.draftId}/share"`);
+    expect(rendered).toContain("Share links");
+    expect(rendered).toContain("1 active");
+    expect(rendered).toContain("v3");
+    expect(rendered).toContain('datetime="2026-09-08T12:30:00.000Z"');
+    expect(rendered).toContain("08 Sep 2026 · 12:30 UTC");
+    expect(rendered).toContain(
+      `method="post" action="/drafts/${DRAFT.draftId}/shares/share%2Fid%22/revoke"`,
+    );
+    expect(rendered).toContain(
+      'name="csrf" value="csrf&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"',
+    );
+    expect(rendered).not.toContain("<script>alert(1)</script>");
+  });
+
+  test("renders the share form with bounded TTL choices and seven days selected", () => {
+    const rendered = renderDraftShareForm(SESSION, "csrf-value", DETAIL);
+
+    expect(rendered).toContain(`method="post" action="/drafts/${DRAFT.draftId}/shares"`);
+    expect(rendered).toContain('name="csrf" value="csrf-value"');
+    expect(rendered).toContain('name="ttlSeconds"');
+    expect(rendered).toContain('<option value="3600">1 hour</option>');
+    expect(rendered).toContain('<option value="86400">1 day</option>');
+    expect(rendered).toContain('<option value="604800" selected>7 days</option>');
+    expect(rendered).toContain('<option value="2592000">30 days</option>');
+    expect(rendered).toContain("v3 · current version");
+  });
+
+  test("shows a newly created share URL once with a nonce-protected copy enhancement", () => {
+    const url = "https://pushdraft.example/s/share-token";
+    const rendered = renderDraftShareCreated(
+      SESSION,
+      "csrf-value",
+      {
+        id: "share_render",
+        draftId: DRAFT.draftId,
+        versionNumber: 3,
+        createdAt: "2026-09-01T12:30:00.000Z",
+        expiresAt: "2026-09-08T12:30:00.000Z",
+        token: "share-token",
+        url,
+      },
+      'nonce"><script>alert(1)</script>',
+    );
+
+    expect(rendered.match(new RegExp(url, "g"))).toHaveLength(1);
+    expect(rendered).toContain(`id="share-url" type="url" value="${url}" readonly`);
+    expect(rendered).toContain('id="copy-share-link" type="button" hidden');
+    expect(rendered).toContain('role="status" aria-live="polite"');
+    expect(rendered).toContain("navigator.clipboard.writeText(input.value)");
+    expect(rendered).toContain('nonce="nonce&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"');
+    expect(rendered).not.toContain("<script>alert(1)</script>");
+    expect(rendered).toContain("08 Sep 2026 · 12:30 UTC");
+  });
+
+  test("renders the public share exchange, ready, and unavailable states", () => {
+    const bridge = renderDraftShareBridge(
+      'https://nok4tarxkb27.pushdraft.example/_share/exchange?x="',
+      'ticket"><img src=x>',
+      "nonce-value",
+    );
+    const ready = renderDraftShareReady('/v/3/</script><script>alert("x")</script>', "nonce-value");
+    const unavailable = renderDraftShareUnavailable("https://pushdraft.example");
+
+    expect(bridge).toContain('id="share-bridge" method="post"');
+    expect(bridge).toContain('history.replaceState(null,"","/share")');
+    expect(bridge).toContain('name="ticket" value="ticket&quot;&gt;&lt;img src=x&gt;"');
+    expect(bridge).toContain("requestSubmit()");
+    expect(ready).toContain(
+      'window.location.replace("/v/3/\\u003c/script>\\u003cscript>alert(\\"x\\")\\u003c/script>")',
+    );
+    expect(ready).not.toContain('</script><script>alert("x")</script>');
+    expect(unavailable).toContain("This link is unavailable.");
+    expect(unavailable).toContain("expired or the owner revoked it");
+    expect(unavailable).toContain('href="https://pushdraft.example/"');
+    expect(unavailable).toContain('href="https://pushdraft.example/drafts"');
   });
 
   test("marks CLI setup as active without changing the protected forms", () => {
