@@ -1,15 +1,9 @@
 const DEFAULT_LOCAL_URL = "http://localhost:3003";
 
-export type PreviewSeedIdentity = {
-  provider: string;
-  subject: string;
-};
-
 export type PreviewSeed = {
   accountId: string;
   accountName: string;
   apiKeyHash: string;
-  identity?: PreviewSeedIdentity;
 };
 
 export type AppConfig = {
@@ -60,27 +54,7 @@ function resolvePreviewSeed(env: NodeJS.ProcessEnv): PreviewSeed | undefined {
     throw new Error("PREVIEW_SEED_API_KEY_HASH must be a hex-encoded sha256 hash.");
   }
 
-  const identity = resolvePreviewSeedIdentity(env);
-  return identity
-    ? { accountId, accountName, apiKeyHash, identity }
-    : { accountId, accountName, apiKeyHash };
-}
-
-// Reviewing a draft in a browser needs a web session, and sign-in maps to an
-// account through the identities table. Seeding the identity keeps the preview
-// account reachable by its real provider user; anyone else who signs in still
-// lands on their own empty account.
-function resolvePreviewSeedIdentity(env: NodeJS.ProcessEnv): PreviewSeedIdentity | undefined {
-  const provider = env.PREVIEW_SEED_IDENTITY_PROVIDER?.trim();
-  const subject = env.PREVIEW_SEED_IDENTITY_SUBJECT?.trim();
-  if (!provider && !subject) return undefined;
-  if (!provider || !subject) {
-    throw new Error(
-      "PREVIEW_SEED_IDENTITY_PROVIDER and PREVIEW_SEED_IDENTITY_SUBJECT must be set together.",
-    );
-  }
-
-  return { provider, subject };
+  return { accountId, accountName, apiKeyHash };
 }
 
 // Railway PR environments copy production variables verbatim, so PUBLIC_URL

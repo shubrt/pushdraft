@@ -100,22 +100,6 @@ export async function seedPreviewAccount(database: Database, seed: PreviewSeed):
     `,
     [newInternalId(), seed.accountId, "preview-seed", seed.apiKeyHash],
   );
-
-  if (!seed.identity) return;
-  await database.query(
-    `
-      INSERT INTO identities (id, account_id, provider, subject, display_name)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (provider, subject) DO NOTHING
-    `,
-    [
-      newInternalId(),
-      seed.accountId,
-      seed.identity.provider,
-      seed.identity.subject,
-      seed.accountName,
-    ],
-  );
 }
 
 export async function createApiKey(
