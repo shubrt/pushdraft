@@ -88,6 +88,31 @@ describe("preview seed resolution", () => {
     expect(() => loadConfig(env)).toThrow(/must be set together/);
   });
 
+  test("carries the identity when both identity variables are set", () => {
+    const config = loadConfig({
+      ...SEED_ENV,
+      RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12",
+      PREVIEW_SEED_IDENTITY_PROVIDER: "shoo",
+      PREVIEW_SEED_IDENTITY_SUBJECT: "ps_example",
+    });
+    expect(config.previewSeed?.identity).toEqual({ provider: "shoo", subject: "ps_example" });
+  });
+
+  test("omits the identity when neither identity variable is set", () => {
+    const config = loadConfig({ ...SEED_ENV, RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12" });
+    expect(config.previewSeed?.identity).toBeUndefined();
+  });
+
+  test("rejects a partially configured identity", () => {
+    expect(() =>
+      loadConfig({
+        ...SEED_ENV,
+        RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12",
+        PREVIEW_SEED_IDENTITY_PROVIDER: "shoo",
+      }),
+    ).toThrow(/IDENTITY_SUBJECT must be set together/);
+  });
+
   test("rejects values that are not a sha256 hex hash", () => {
     const env = {
       ...SEED_ENV,

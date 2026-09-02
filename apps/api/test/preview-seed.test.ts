@@ -28,4 +28,26 @@ describe("preview account seeding", () => {
     expect(keyInsert.values.slice(1)).toEqual(["acct_preview", "preview-seed", "ab".repeat(32)]);
     expect(keyInsert.values[0]).toMatch(/^[0-9a-zA-Z]{20}$/);
   });
+
+  test("inserts the identity so provider sign-in reaches the seeded account", async () => {
+    const database = createFakeDatabase();
+
+    await seedPreviewAccount(database, {
+      ...SEED,
+      identity: { provider: "shoo", subject: "ps_example" },
+    });
+
+    expect(database.calls).toHaveLength(3);
+    const identityInsert = database.calls[2]!;
+    expect(compactSql(identityInsert.text)).toContain(
+      "INSERT INTO identities (id, account_id, provider, subject, display_name)",
+    );
+    expect(compactSql(identityInsert.text)).toContain("ON CONFLICT (provider, subject) DO NOTHING");
+    expect(identityInsert.values.slice(1)).toEqual([
+      "acct_preview",
+      "shoo",
+      "ps_example",
+      "Preview",
+    ]);
+  });
 });

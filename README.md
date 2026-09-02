@@ -11,9 +11,10 @@ has no staging environment or CI pipelines. Pull requests get an ephemeral
 Railway PR environment with its own Postgres instance and a generated
 `up.railway.app` domain; because that domain has no wildcard subdomains, draft
 delivery there works only through the apex bridge routes. On boot, preview
-environments seed the account and API-key hash from the `PREVIEW_SEED_*`
-variables, so the production CLI key works there and switching targets is just
-`pushdraft --api-url <preview-url>` (or the `API_URL` environment variable).
+environments seed the account, API-key hash and sign-in identity from the
+`PREVIEW_SEED_*` variables, so the production CLI key and browser sign-in both
+work there and switching targets is just `pushdraft --api-url <preview-url>`
+(or the `API_URL` environment variable).
 
 ## Packages
 
