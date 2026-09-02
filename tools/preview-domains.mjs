@@ -27,7 +27,12 @@ if (!["up", "down"].includes(command) || !environmentName?.match(/^[a-z0-9-]+$/)
 }
 
 const apexDomain = `${environmentName}.${PREVIEW_SUFFIX}`;
-const recordNames = [apexDomain, `*.${apexDomain}`, `_acme-challenge.${apexDomain}`];
+const recordNames = [
+  apexDomain,
+  `*.${apexDomain}`,
+  `_acme-challenge.${apexDomain}`,
+  `_railway-verify.${apexDomain}`,
+];
 
 function requireToken(name) {
   const value = process.env[name]?.trim();
@@ -101,25 +106,23 @@ async function findServiceId(environmentId) {
   return instance.node.serviceId;
 }
 
-const DOMAIN_FIELDS = `id domain status { dnsRecords { hostlabel requiredValue recordType } }`;
+const DOMAIN_FIELDS = `id domain status { dnsRecords { hostlabel requiredValue recordType }
+  verificationToken verificationDnsHost }`;
 
 async function ensureCustomDomain(environmentId, serviceId, domain) {
-  try {
-    const data = await railway(`mutation { customDomainCreate(input: {
-      projectId: "${PROJECT_ID}", environmentId: "${environmentId}",
-      serviceId: "${serviceId}", domain: "${domain}" }) { ${DOMAIN_FIELDS} } }`);
-    console.log(`Created Railway custom domain ${domain}`);
-    return data.customDomainCreate;
-  } catch (error) {
-    if (!String(error.message).toLowerCase().includes("already")) throw error;
-    const data = await railway(`query { domains(projectId: "${PROJECT_ID}",
-      environmentId: "${environmentId}", serviceId: "${serviceId}") {
-      customDomains { ${DOMAIN_FIELDS} } } }`);
-    const existing = data.domains.customDomains.find((entry) => entry.domain === domain);
-    if (!existing) throw error;
+  const data = await railway(`query { domains(projectId: "${PROJECT_ID}",
+    environmentId: "${environmentId}", serviceId: "${serviceId}") {
+    customDomains { ${DOMAIN_FIELDS} } } }`);
+  const existing = data.domains.customDomains.find((entry) => entry.domain === domain);
+  if (existing) {
     console.log(`Railway custom domain ${domain} already exists`);
     return existing;
   }
+  const created = await railway(`mutation { customDomainCreate(input: {
+    projectId: "${PROJECT_ID}", environmentId: "${environmentId}",
+    serviceId: "${serviceId}", domain: "${domain}" }) { ${DOMAIN_FIELDS} } }`);
+  console.log(`Created Railway custom domain ${domain}`);
+  return created.customDomainCreate;
 }
 
 async function zoneId() {
@@ -128,15 +131,15 @@ async function zoneId() {
   return zones[0].id;
 }
 
-async function upsertRecord(zone, name, content) {
+async function upsertRecord(zone, type, name, content) {
   const existing = await cloudflare(`/zones/${zone}/dns_records?name=${encodeURIComponent(name)}`);
-  const body = JSON.stringify({ type: "CNAME", name, content, proxied: false, ttl: 60 });
+  const body = JSON.stringify({ type, name, content, proxied: false, ttl: 60 });
   if (existing.length) {
     await cloudflare(`/zones/${zone}/dns_records/${existing[0].id}`, { method: "PUT", body });
-    console.log(`Updated DNS record ${name} -> ${content}`);
+    console.log(`Updated ${type} record ${name} -> ${content}`);
   } else {
     await cloudflare(`/zones/${zone}/dns_records`, { method: "POST", body });
-    console.log(`Created DNS record ${name} -> ${content}`);
+    console.log(`Created ${type} record ${name} -> ${content}`);
   }
 }
 
@@ -167,7 +170,16 @@ async function up() {
   const zone = await zoneId();
   for (const domain of domains) {
     for (const record of domain.status.dnsRecords) {
-      await upsertRecord(zone, `${record.hostlabel}.${ZONE_NAME}`, record.requiredValue);
+      await upsertRecord(zone, "CNAME", `${record.hostlabel}.${ZONE_NAME}`, record.requiredValue);
+    }
+    // Ownership check: Railway reports this TXT requirement outside dnsRecords.
+    if (domain.status.verificationDnsHost && domain.status.verificationToken) {
+      await upsertRecord(
+        zone,
+        "TXT",
+        `${domain.status.verificationDnsHost}.${ZONE_NAME}`,
+        domain.status.verificationToken,
+      );
     }
   }
   const healthy = await waitForHealth();
