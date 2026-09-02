@@ -67,12 +67,16 @@ function resolvePreviewSeed(env: NodeJS.ProcessEnv): PreviewSeed | undefined {
 
 // Railway PR environments copy production variables verbatim, so PUBLIC_URL
 // would point at production there. Outside the production environment the
-// Railway-generated service domain is the canonical origin instead.
+// canonical origin is the per-environment custom domain when the template is
+// configured (draft delivery needs its wildcard subdomains), and the
+// Railway-generated service domain otherwise.
 function resolvePublicUrl(env: NodeJS.ProcessEnv): string {
   const railwayEnvironment = env.RAILWAY_ENVIRONMENT_NAME?.trim();
-  const railwayDomain = env.RAILWAY_PUBLIC_DOMAIN?.trim();
-  if (railwayEnvironment && railwayEnvironment !== "production" && railwayDomain) {
-    return `https://${railwayDomain}`;
+  if (railwayEnvironment && railwayEnvironment !== "production") {
+    const template = env.PREVIEW_PUBLIC_URL_TEMPLATE?.trim();
+    if (template) return template.replaceAll("{env}", railwayEnvironment);
+    const railwayDomain = env.RAILWAY_PUBLIC_DOMAIN?.trim();
+    if (railwayDomain) return `https://${railwayDomain}`;
   }
   return env.PUBLIC_URL ?? DEFAULT_LOCAL_URL;
 }

@@ -14,10 +14,14 @@ API-key hash from the `PREVIEW_SEED_*` variables, so the production CLI key
 works there and switching targets is just `pushdraft --api-url <preview-url>`
 (or the `API_URL` environment variable). Shoo issues a different pairwise
 subject per origin, so a preview sign-in matches the seeded account through the
-stable `PREVIEW_SEED_PII_SUBJECT` instead of the production subject. Draft content is served only on the
-per-draft subdomain host, which the generated domain cannot provide, so a
-preview exercises the API and the CLI while reading a draft in a browser stays
-a production concern.
+stable `PREVIEW_SEED_PII_SUBJECT` instead of the production subject. Draft
+content is served only on the per-draft subdomain host, which the generated
+domain cannot provide, so the `preview-domains` workflow gives every PR
+environment its own apex and wildcard domain under `preview.pushdraft.dev`
+(Railway custom domains plus DNS-only Cloudflare records, torn down on close;
+`tools/preview-domains.mjs` does the work and also runs locally). The
+`PREVIEW_PUBLIC_URL_TEMPLATE` variable makes the preview generate its links on
+that domain, so drafts render in previews exactly as in production.
 
 ## Packages
 

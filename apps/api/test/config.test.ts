@@ -40,6 +40,38 @@ describe("public URL resolution", () => {
     expect(config.publicUrl.origin).toBe("https://api-pushdraft-pr-12.up.railway.app");
   });
 
+  test("prefers the preview URL template over the Railway domain", () => {
+    const config = loadConfig({
+      ...BASE_ENV,
+      NODE_ENV: "production",
+      PUBLIC_URL: "https://pushdraft.dev",
+      RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12",
+      RAILWAY_PUBLIC_DOMAIN: "api-pushdraft-pr-12.up.railway.app",
+      PREVIEW_PUBLIC_URL_TEMPLATE: "https://{env}.preview.pushdraft.dev",
+    });
+    expect(config.publicUrl.origin).toBe("https://pushdraft-pr-12.preview.pushdraft.dev");
+  });
+
+  test("ignores the preview URL template in the Railway production environment", () => {
+    const config = loadConfig({
+      ...BASE_ENV,
+      NODE_ENV: "production",
+      PUBLIC_URL: "https://pushdraft.dev",
+      RAILWAY_ENVIRONMENT_NAME: "production",
+      RAILWAY_PUBLIC_DOMAIN: "api-production.up.railway.app",
+      PREVIEW_PUBLIC_URL_TEMPLATE: "https://{env}.preview.pushdraft.dev",
+    });
+    expect(config.publicUrl.origin).toBe("https://pushdraft.dev");
+  });
+
+  test("ignores the preview URL template outside Railway", () => {
+    const config = loadConfig({
+      ...BASE_ENV,
+      PREVIEW_PUBLIC_URL_TEMPLATE: "https://{env}.preview.pushdraft.dev",
+    });
+    expect(config.publicUrl.origin).toBe("http://localhost:3003");
+  });
+
   test("falls back to PUBLIC_URL when a Railway environment has no domain", () => {
     const config = loadConfig({
       ...BASE_ENV,
