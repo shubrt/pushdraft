@@ -126,7 +126,8 @@ async function main() {
     override ?? process.env.API_URL ?? config.apiUrl ?? "https://pushdraft.dev",
   );
   const credentials = await readJson(path.join(stateDirectory, "credentials.json"));
-  const html = await readDraft(target, process.env.API_KEY ?? credentials.apiKey);
+  const apiKey = process.env.API_KEY?.trim() || credentials.apiKey;
+  const html = await readDraft(target, apiKey);
   process.stdout.write(html);
 }
 

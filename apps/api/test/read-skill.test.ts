@@ -1,6 +1,9 @@
-import { mkdtemp, readdir, rm, stat } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { describe, expect, test } from "vite-plus/test";
 
 import { readDraft, resolveDraftUrl } from "../../../skills/pushdraft-read/scripts/read.mjs";
@@ -15,6 +18,60 @@ import {
 
 const APEX = TEST_CONFIG.publicUrl.origin;
 const ORIGIN = `https://${TEST_DRAFT_ID}.pushdraft.example`;
+
+describe("read skill saved credentials", () => {
+  test.each([
+    [undefined, "saved-key"],
+    ["", "saved-key"],
+    [" \t ", "saved-key"],
+    ["environment-key", "environment-key"],
+  ])("uses saved credentials unless API_KEY is nonempty: %j", async (apiKey, expectedKey) => {
+    const directory = await mkdtemp(path.join(tmpdir(), "read-skill-auth-test-"));
+    try {
+      await mkdir(path.join(directory, ".pushdraft"));
+      await writeFile(
+        path.join(directory, ".pushdraft", "credentials.json"),
+        JSON.stringify({ apiKey: "saved-key" }),
+      );
+      const preload = path.join(directory, "preload.mjs");
+      await writeFile(
+        preload,
+        `import os from "node:os";
+import { syncBuiltinESMExports } from "node:module";
+os.homedir = () => ${JSON.stringify(directory)};
+syncBuiltinESMExports();
+globalThis.fetch = async (input, init) => {
+  if (input !== ${JSON.stringify(`${ORIGIN}/raw`)}) throw new Error("Unexpected request URL");
+  if (new Headers(init.headers).get("authorization") !== ${JSON.stringify(`Bearer ${expectedKey}`)}) {
+    throw new Error("Wrong credential selected");
+  }
+  return new Response("<p>Verified draft</p>", { headers: {
+    "x-postplan-draft-id": ${JSON.stringify(TEST_DRAFT_ID)},
+    "x-postplan-draft-version": "1",
+    "content-type": "text/html"
+  } });
+};`,
+      );
+      const env = { ...process.env, API_URL: APEX, API_KEY: apiKey };
+      const result = await promisify(execFile)(
+        process.execPath,
+        [
+          "--import",
+          pathToFileURL(preload).href,
+          fileURLToPath(
+            new URL("../../../skills/pushdraft-read/scripts/read.mjs", import.meta.url),
+          ),
+          ORIGIN,
+        ],
+        { env },
+      );
+      expect(result.stdout).toBe("<p>Verified draft</p>");
+      expect(result.stderr).toBe("");
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("read skill URL mapping", () => {
   test.each([
