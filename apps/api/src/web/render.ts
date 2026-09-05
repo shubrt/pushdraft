@@ -323,7 +323,7 @@ function header(
     </nav>
     <div class="account" aria-label="Signed in as ${escapeHtml(accountLabel)}">
       ${avatar}
-      <span class="account-name">${escapeHtml(session.accountName)}</span>
+      <span class="account-name" title="${escapeHtml(session.accountName)}">${escapeHtml(session.accountName)}</span>
       ${email}
     </div>
     ${signOut}
@@ -457,16 +457,16 @@ function page(title: string, body: string): string {
     .page-shell{width:min(100% - 40px,1050px);margin-inline:auto}
     .site-header{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
     .site-header-inner{min-height:62px;width:min(100% - 40px,1050px);margin-inline:auto;display:flex;align-items:center;gap:28px}
-    .brand{color:var(--ink);font:700 23px/1 Georgia,"Times New Roman",serif;text-decoration:none;letter-spacing:-.04em}
+    .brand{flex-shrink:0;color:var(--ink);font:700 23px/1 Georgia,"Times New Roman",serif;text-decoration:none;letter-spacing:-.04em}
     .brand:hover{text-decoration:none;color:var(--accent)}
-    nav{display:flex;align-items:center;gap:26px}
+    nav{flex-shrink:0;display:flex;align-items:center;gap:26px}
     nav a{color:var(--muted);text-decoration:none}
     nav a:hover,nav a.active{color:var(--accent);text-decoration:none}
     .account{min-width:0;margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;white-space:nowrap}
     .account-avatar{width:24px;height:24px;flex:0 0 24px;border:1px solid var(--line);border-radius:50%;object-fit:cover}
     .account-initial{display:grid;place-items:center;background:var(--surface);color:var(--ink);font:700 11px/1 "Avenir Next",Avenir,"Segoe UI",Arial,sans-serif}
-    .account-name{color:var(--ink)}
-    .account-email{max-width:220px;overflow:hidden;text-overflow:ellipsis;filter:blur(4px);opacity:.72;user-select:none}
+    .account-name{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+    .account-email{min-width:0;max-width:220px;overflow:hidden;text-overflow:ellipsis;filter:blur(4px);opacity:.72;user-select:none}
     .account:hover .account-email,.account-email:focus{filter:none;opacity:1;user-select:text;outline:none}
     .sign-out{margin:0;flex:0 0 auto}
     .sign-out .link{color:var(--ink);font-size:12px;text-decoration:underline}
@@ -475,8 +475,8 @@ function page(title: string, body: string): string {
     .repository-section{margin-top:30px}
     .repository-section:first-of-type{margin-top:0}
     .repository-heading{display:flex;align-items:baseline;gap:13px;margin-bottom:7px}
-    .repository-heading h2{margin:0;font-size:16px;line-height:1.2}
-    .repository-link{font-size:12px;text-decoration:none}
+    .repository-heading h2{min-width:0;overflow-wrap:anywhere;margin:0;font-size:16px;line-height:1.2}
+    .repository-link{flex-shrink:0;font-size:12px;text-decoration:none}
     .draft-list{border-bottom:1px solid var(--line)}
     .draft-row{min-height:43px;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:28px}
     .draft-row:first-child{border-top:0}
@@ -488,7 +488,7 @@ function page(title: string, body: string): string {
     .no-version{color:var(--muted)}
     .back-link{display:inline-block;margin-bottom:34px;font-size:13px;text-decoration:none}
     .detail-screen{max-width:900px}
-    .detail-heading{max-width:720px;margin-bottom:52px}
+    .detail-heading{overflow-wrap:anywhere;max-width:720px;margin-bottom:52px}
     .detail-heading h1,.cli-screen h1,.landing h1,.center h1{margin-bottom:14px;font-size:clamp(38px,6vw,62px);line-height:.98;letter-spacing:-.055em}
     .detail-heading h1,.cli-screen h1{font-size:clamp(34px,5vw,50px)}
     .eyebrow{margin-bottom:13px;color:var(--muted);font-size:10px;letter-spacing:.08em}
@@ -544,7 +544,7 @@ function page(title: string, body: string): string {
       .page-shell{width:min(100% - 32px,1050px)}
       .site-header-inner{width:min(100% - 32px,1050px);min-height:72px;gap:18px;flex-wrap:wrap;padding:13px 0}
       nav{order:3;width:100%;gap:22px}
-      .account{margin-left:auto;max-width:48%}
+      .account{flex:1;margin-left:auto}
       .sign-out{order:2}
       .screen{padding-top:34px;padding-bottom:54px}
       .draft-row{grid-template-columns:1fr;gap:0;padding:9px 0}

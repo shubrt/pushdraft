@@ -135,6 +135,14 @@ node apps/cli/dist/cli.js auth login --api-url http://localhost:3003
 
 ## Checks
 
+The browser layout regression checks the draft list, details and CLI setup with
+long metadata at 320, 375 and 1050 CSS pixels. Install Chromium once, then run it:
+
+```bash
+vp exec playwright install chromium
+vp run test:browser
+```
+
 ```bash
 vp run qa
 ```
