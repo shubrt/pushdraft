@@ -737,6 +737,7 @@ function safeNextPath(value: string | null): string {
   if (
     path === "/drafts" ||
     path === "/cli/auth" ||
+    /^\/drafts\/[a-z0-9]{12}(?:\/share)?$/.test(path) ||
     /^\/[a-z0-9]{12}(?:\?version=\d+)?$/.test(path)
   ) {
     return path;
