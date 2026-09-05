@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { isJsonObject } from "./api-types.js";
 import { CliError } from "./errors.js";
+import { withFileLock } from "./file-lock.js";
 
 export const DEFAULT_API_URL = "https://pushdraft.dev";
 
@@ -137,6 +138,36 @@ export function readDraftState(paths: StatePaths): DraftState {
 
 export function writeDraftState(paths: StatePaths, state: DraftState): void {
   writeJson(paths, paths.drafts, state);
+}
+
+export async function updateDraftState(
+  paths: StatePaths,
+  update: (state: DraftState) => void,
+): Promise<void> {
+  ensureStateDirectory(paths);
+  await withFileLock(`${paths.drafts}.lock`, async () => {
+    const state = readDraftState(paths);
+    update(state);
+    writeDraftState(paths, state);
+  });
+}
+
+export async function withUploadLocks<T>(
+  paths: StatePaths,
+  filenames: string[],
+  action: () => Promise<T>,
+): Promise<T> {
+  ensureStateDirectory(paths);
+  const locks = [...new Set(filenames)].sort();
+  async function acquire(index: number): Promise<T> {
+    const filename = locks[index];
+    if (filename === undefined) return action();
+    const hash = createHash("sha256").update(filename).digest("hex");
+    return withFileLock(path.join(paths.directory, `upload-${hash}.lock`), () =>
+      acquire(index + 1),
+    );
+  }
+  return acquire(0);
 }
 
 export function mappedDraftId(
