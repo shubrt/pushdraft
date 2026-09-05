@@ -10,6 +10,7 @@
     "db:push": "vp run -r db:push",
     "clean": "vp run -r clean && git clean -xdf node_modules .vite",
     "check": "vp check",
+    "test:browser": "playwright test",
     "fix": "vp check --fix",
     "sherif": "vp exec sherif",
     "qa": "vp check && vp run sherif && vp run typecheck && vp test run",
@@ -20,6 +21,7 @@
     "@commitlint/cli": "^21.0.1",
     "@commitlint/config-conventional": "^19.8.1",
     "@commitlint/types": "^20.2.0",
+    "@playwright/test": "^1.62.1",
     "sherif": "^1.11.1",
     "typescript": "catalog:",
     "vite-plus": "catalog:"

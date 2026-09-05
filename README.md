@@ -143,6 +143,14 @@ vp test run     # single pass
 vp test watch   # watch mode
 ```
 
+The browser layout regression checks the draft list, details and CLI setup with
+long metadata at 320, 375 and 1050 CSS pixels. Install Chromium once, then run it:
+
+```bash
+vp exec playwright install chromium
+vp run test:browser
+```
+
 The API keeps every browser page and draft private. Browser access uses a Shoo
 session plus a one-time subdomain handshake. Agents use a Bearer API key for
 listing, uploading and fetching draft files.
