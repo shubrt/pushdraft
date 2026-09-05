@@ -3,6 +3,8 @@ import { describe, expect, test } from "vite-plus/test";
 import { validateImage } from "../src/drafts/image-policy";
 
 import {
+  ANIMATED_PNG,
+  CORRUPT_ANIMATED_PNG,
   CORRUPT_IMAGE_FIXTURES,
   IMAGE_FIXTURES,
   JPEG,
@@ -26,6 +28,16 @@ describe("raster image validation", () => {
       bytes,
     });
   });
+
+  test.each([ANIMATED_PNG, CORRUPT_ANIMATED_PNG])(
+    "rejects APNG even when its default image decodes",
+    async (bytes) => {
+      expect(await validateImage(bytes.toString("base64"), "image/png", 1024)).toEqual({
+        ok: false,
+        errors: ["Animated PNG images are not supported. Use a static PNG or animated WebP."],
+      });
+    },
+  );
 
   test.each(IMAGE_FIXTURES)("rejects every truncated prefix of %s", async (mediaType, bytes) => {
     for (let length = 1; length < bytes.length; length++) {

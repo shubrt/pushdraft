@@ -32,7 +32,14 @@ export async function validateImage(
   if (errors.length > 0) return { ok: false, errors };
 
   try {
-    if (!hasCompleteContainer(bytes, mediaType)) throw new Error("Incomplete image container.");
+    const container = inspectContainer(bytes, mediaType);
+    if (container === "animated-png") {
+      return {
+        ok: false,
+        errors: ["Animated PNG images are not supported. Use a static PNG or animated WebP."],
+      };
+    }
+    if (container !== "complete") throw new Error("Incomplete image container.");
     // Decode every pixel and animated WebP frame; metadata only inspects headers.
     // Some decoder warnings do not reject the promise, even with failOn set.
     let warned = false;
@@ -89,31 +96,38 @@ function at(bytes: Uint8Array, offset: number, signature: readonly number[]): bo
   return signature.every((value, index) => bytes[offset + index] === value);
 }
 
-function hasCompleteContainer(bytes: Buffer, mediaType: RasterImageMediaType): boolean {
+function inspectContainer(
+  bytes: Buffer,
+  mediaType: RasterImageMediaType,
+): "complete" | "incomplete" | "animated-png" {
   if (mediaType === "image/jpeg") {
     // JPEG readers allow application data after the end-of-image marker.
-    return bytes.includes(Buffer.from([0xff, 0xd9]), 2);
+    return bytes.includes(Buffer.from([0xff, 0xd9]), 2) ? "complete" : "incomplete";
   }
   if (mediaType === "image/webp") {
-    if (bytes.readUInt32LE(4) !== bytes.length - 8) return false;
+    if (bytes.readUInt32LE(4) !== bytes.length - 8) return "incomplete";
     let offset = 12;
     while (offset + 8 <= bytes.length) {
       const size = bytes.readUInt32LE(offset + 4);
       offset += 8 + size + (size % 2);
     }
-    return offset === bytes.length;
+    return offset === bytes.length ? "complete" : "incomplete";
   }
   let offset = 8;
   while (offset + 12 <= bytes.length) {
     const size = bytes.readUInt32BE(offset);
     const type = bytes.toString("ascii", offset + 4, offset + 8);
     const end = offset + 12 + size;
-    if (end > bytes.length) return false;
-    if (pngCrc(bytes.subarray(offset + 4, end - 4)) !== bytes.readUInt32BE(end - 4)) return false;
+    if (end > bytes.length) return "incomplete";
+    if (pngCrc(bytes.subarray(offset + 4, end - 4)) !== bytes.readUInt32BE(end - 4)) {
+      return "incomplete";
+    }
+    // Sharp decodes only the default PNG image, leaving APNG frames unchecked.
+    if (type === "acTL" || type === "fcTL" || type === "fdAT") return "animated-png";
     offset = end;
-    if (type === "IEND") return size === 0 && offset === bytes.length;
+    if (type === "IEND") return size === 0 && offset === bytes.length ? "complete" : "incomplete";
   }
-  return false;
+  return "incomplete";
 }
 
 function pngCrc(bytes: Uint8Array): number {

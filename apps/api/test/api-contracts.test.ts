@@ -21,7 +21,14 @@ import {
   type QueryCall,
 } from "./helpers";
 
-import { CORRUPT_IMAGE_FIXTURES, IMAGE_FIXTURES, JPEG, OVERSIZED_PNG } from "./image-fixtures";
+import {
+  ANIMATED_PNG,
+  CORRUPT_ANIMATED_PNG,
+  CORRUPT_IMAGE_FIXTURES,
+  IMAGE_FIXTURES,
+  JPEG,
+  OVERSIZED_PNG,
+} from "./image-fixtures";
 
 const API_TOKEN = "pushdraft_contract-test-token";
 const ACCOUNT_ID = "acct_contracts";
@@ -135,6 +142,26 @@ describe("API response contracts", () => {
 });
 
 describe("API error contracts", () => {
+  test.each([ANIMATED_PNG, CORRUPT_ANIMATED_PNG])(
+    "rejects APNG before persistence",
+    async (bytes) => {
+      const database = authenticatedDatabase();
+      const response = await apiRequest("/api/uploads", database, {
+        method: "POST",
+        body: JSON.stringify({
+          image: { mediaType: "image/png", base64: bytes.toString("base64") },
+        }),
+      });
+      expect(response.status).toBe(422);
+      expect(await responseJson(response)).toEqual({
+        ok: false,
+        errors: ["Animated PNG images are not supported. Use a static PNG or animated WebP."],
+        warnings: [],
+      });
+      expect(database.calls).toHaveLength(1);
+    },
+  );
+
   test.each([
     ...IMAGE_FIXTURES.map(([mediaType, bytes]) => [mediaType, bytes.subarray(0, 12)] as const),
     ...CORRUPT_IMAGE_FIXTURES,
