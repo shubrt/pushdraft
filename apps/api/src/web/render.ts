@@ -5,6 +5,9 @@ import type { CreatedDraftShare, DraftShareSummary } from "../shares/repository"
 
 type ActiveNavigation = "drafts" | "cli";
 
+type RepositoryIdentity = { host: string | null; org: string; name: string };
+type DraftGroup = { repository: RepositoryIdentity | null; drafts: DraftSummary[] };
+
 export function renderHome(): string {
   return page(
     "pushdraft",
@@ -47,11 +50,14 @@ export function renderDrafts(
 ): string {
   const groups = groupDrafts(drafts);
   const body = groups
-    .map(([repository, values]) => {
-      const repositoryLink = githubRepositoryLink(values[0]);
+    .map(({ repository, drafts: values }) => {
+      const repositoryLink = githubRepositoryLink(repository);
+      const repositoryLabel = repository
+        ? `${repository.host ?? "Unknown host"}/${repository.org}/${repository.name}`
+        : "No repository";
       return `<section class="repository-section">
         <div class="repository-heading">
-          <h2>${escapeHtml(repository)}</h2>
+          <h2>${escapeHtml(repositoryLabel)}</h2>
           ${repositoryLink ? `<a class="repository-link" href="${repositoryLink}" target="_blank" rel="noreferrer">GitHub ↗</a>` : ""}
         </div>
         <div class="draft-list">
@@ -337,27 +343,26 @@ function renderDraftRow(draft: DraftSummary): string {
   </div>`;
 }
 
-function groupDrafts(drafts: DraftSummary[]): Array<[string, DraftSummary[]]> {
-  const groups = new Map<string, DraftSummary[]>();
+function groupDrafts(drafts: DraftSummary[]): DraftGroup[] {
+  const groups = new Map<string, DraftGroup>();
   for (const draft of drafts) {
     const repository =
-      draft.repoOrg && draft.repoName ? `${draft.repoOrg}/${draft.repoName}` : "No repository";
-    const group = groups.get(repository) ?? [];
-    group.push(draft);
-    groups.set(repository, group);
+      draft.repoOrg && draft.repoName
+        ? { host: draft.repoHost?.toLowerCase() ?? null, org: draft.repoOrg, name: draft.repoName }
+        : null;
+    const key = repository
+      ? JSON.stringify([repository.host, repository.org, repository.name])
+      : "none";
+    const group = groups.get(key) ?? { repository, drafts: [] };
+    group.drafts.push(draft);
+    groups.set(key, group);
   }
-  return [...groups];
+  return [...groups.values()];
 }
 
-function githubRepositoryLink(draft: DraftSummary | undefined): string | null {
-  if (
-    !draft?.repoOrg ||
-    !draft.repoName ||
-    draft.repoHost?.toLowerCase().replace(/^www\./, "") !== "github.com"
-  ) {
-    return null;
-  }
-  return `https://github.com/${encodeURIComponent(draft.repoOrg)}/${encodeURIComponent(draft.repoName)}`;
+function githubRepositoryLink(repository: RepositoryIdentity | null): string | null {
+  if (repository?.host?.replace(/^www\./, "") !== "github.com") return null;
+  return `https://github.com/${encodeURIComponent(repository.org)}/${encodeURIComponent(repository.name)}`;
 }
 
 function formatTime(value: string): string {
