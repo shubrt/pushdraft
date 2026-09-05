@@ -93,15 +93,19 @@ type DraftRequestAccess =
 
 export function createApp({ config, database }: Dependencies) {
   return new Elysia()
+    .onError(({ error, request }) => {
+      const result =
+        error instanceof RequestBodyTooLargeError
+          ? response("Request body too large.", 413, "text/plain; charset=utf-8")
+          : json({ ok: false, error: "Internal server error." }, 500);
+      if (!(error instanceof RequestBodyTooLargeError)) console.error(error);
+      for (const [name, value] of Object.entries(securityHeaders(config, request))) {
+        result.headers.set(name, value);
+      }
+      return result;
+    })
     .onAfterHandle(({ request, responseValue, set }) => {
-      set.headers["x-content-type-options"] = "nosniff";
-      set.headers["cache-control"] = "private, no-store";
-      // Apex forms need a concrete Origin for mutation guards. Draft content stays opaque.
-      set.headers["referrer-policy"] = isApexHostname(config, new URL(request.url).hostname)
-        ? "strict-origin"
-        : "no-referrer";
-      set.headers["x-frame-options"] = "DENY";
-      set.headers["permissions-policy"] = "camera=(), microphone=(), geolocation=()";
+      Object.assign(set.headers, securityHeaders(config, request));
       return responseValue;
     })
     .get("/healthz", async ({ set }) => {
@@ -125,14 +129,20 @@ export function createApp({ config, database }: Dependencies) {
       const draftId = draftIdFromHostname(config, hostname);
       if (draftId) return handleDraftHost(context.request, requestUrl, draftId, config, database);
       return response("Misdirected request.", 421, "text/plain; charset=utf-8");
-    })
-    .onError(({ error }) => {
-      if (error instanceof RequestBodyTooLargeError) {
-        return response("Request body too large.", 413, "text/plain; charset=utf-8");
-      }
-      console.error(error);
-      return json({ ok: false, error: "Internal server error." }, 500);
     });
+}
+
+function securityHeaders(config: AppConfig, request: Request): Record<string, string> {
+  return {
+    "x-content-type-options": "nosniff",
+    "cache-control": "private, no-store",
+    // Apex forms need a concrete Origin for mutation guards. Draft content stays opaque.
+    "referrer-policy": isApexHostname(config, new URL(request.url).hostname)
+      ? "strict-origin"
+      : "no-referrer",
+    "x-frame-options": "DENY",
+    "permissions-policy": "camera=(), microphone=(), geolocation=()",
+  };
 }
 
 async function handleApex(
@@ -290,7 +300,7 @@ async function handleApex(
     ]);
     return detail
       ? html(renderDraftDetail(session, readCsrfToken(request.headers) ?? "", detail, shares))
-      : html(renderNotFound(), 404);
+      : html(renderNotFound(config.publicUrl.origin), 404);
   }
 
   const shareFormMatch = url.pathname.match(/^\/drafts\/([a-z0-9]{12})\/share$/);
@@ -299,7 +309,7 @@ async function handleApex(
     const detail = await getDraftDetail(database, config, session.accountId, shareFormMatch[1]);
     return detail && !detail.draft.disabled && detail.draft.latestVersionNumber !== null
       ? html(renderDraftShareForm(session, readCsrfToken(request.headers) ?? "", detail))
-      : html(renderNotFound(), 404);
+      : html(renderNotFound(config.publicUrl.origin), 404);
   }
 
   const createShareMatch = url.pathname.match(/^\/drafts\/([a-z0-9]{12})\/shares$/);
@@ -328,7 +338,7 @@ async function handleApex(
       }
       throw error;
     }
-    if (!created) return html(renderNotFound(), 404);
+    if (!created) return html(renderNotFound(config.publicUrl.origin), 404);
     const nonce = randomToken(16);
     return html(
       renderDraftShareCreated(session, readCsrfToken(request.headers) ?? "", created, nonce),
@@ -353,7 +363,7 @@ async function handleApex(
       revokeShareMatch[1],
       revokeShareMatch[2],
     );
-    if (!revoked) return html(renderNotFound(), 404);
+    if (!revoked) return html(renderNotFound(config.publicUrl.origin), 404);
     return redirect(new URL(`/drafts/${revokeShareMatch[1]}`, config.publicUrl).toString());
   }
 
@@ -394,9 +404,10 @@ async function handleApex(
   if (request.method === "GET" && bridgeMatch?.[1]) {
     if (!session) return html(renderSignIn(url.pathname + url.search));
     const version = parsePositiveVersion(url.searchParams.get("version"));
-    if (url.searchParams.has("version") && version === null) return html(renderNotFound(), 404);
+    if (url.searchParams.has("version") && version === null)
+      return html(renderNotFound(config.publicUrl.origin), 404);
     const ticket = await createDraftAccessTicket(database, session, bridgeMatch[1], version);
-    if (!ticket) return html(renderNotFound(), 404);
+    if (!ticket) return html(renderNotFound(config.publicUrl.origin), 404);
     const action = draftUrl(config, bridgeMatch[1], "/_auth/exchange");
     const nonce = randomToken(16);
     return html(renderDraftBridge(action, ticket.token, nonce), 200, [], {
@@ -404,7 +415,7 @@ async function handleApex(
     });
   }
 
-  return html(renderNotFound(), 404);
+  return html(renderNotFound(config.publicUrl.origin), 404);
 }
 
 async function handleApi(
@@ -555,7 +566,7 @@ async function handleDraftHost(
   }
 
   const route = parseDraftContentRoute(url.pathname);
-  if (!route) return html(renderNotFound(), 404);
+  if (!route) return html(renderNotFound(config.publicUrl.origin), 404);
   if (request.method !== "GET" && request.method !== "HEAD") {
     return methodNotAllowed("GET, HEAD");
   }
@@ -620,7 +631,7 @@ async function handleDraftHost(
     return redirect(draftUrl(config, draftId, `/v/${access.versionNumber}/`), 303);
   }
   if (access.kind === "share" && !sharedRouteAllows(route, access.versionNumber)) {
-    return html(renderNotFound(), 404);
+    return html(renderNotFound(config.publicUrl.origin), 404);
   }
 
   const content =
@@ -637,7 +648,7 @@ async function handleDraftHost(
             route.name,
           )
         : await getStoredContent(database, access.accountId, draftId, route.versionNumber);
-  if (!content) return html(renderNotFound(), 404);
+  if (!content) return html(renderNotFound(config.publicUrl.origin), 404);
 
   const headers = new Headers({
     "content-type":
@@ -727,6 +738,7 @@ function safeNextPath(value: string | null): string {
   if (
     path === "/drafts" ||
     path === "/cli/auth" ||
+    /^\/drafts\/[a-z0-9]{12}(?:\/share)?$/.test(path) ||
     /^\/[a-z0-9]{12}(?:\?version=\d+)?$/.test(path)
   ) {
     return path;
@@ -737,7 +749,8 @@ function safeNextPath(value: string | null): string {
 function parsePositiveVersion(value: string | null): number | null {
   if (value === null || !/^\d+$/.test(value)) return null;
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+  // Version columns and query casts use PostgreSQL INTEGER.
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= 2_147_483_647 ? parsed : null;
 }
 
 function parseDraftShareTtl(value: string | null): number | null {

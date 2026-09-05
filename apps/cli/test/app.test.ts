@@ -21,6 +21,44 @@ afterEach(() => {
 });
 
 describe("upload", () => {
+  test.each([
+    ["--draft", "bad-id"],
+    ["--draft", "q43kvvtxix1x", "--new"],
+  ])("rejects invalid arguments before uploading reference images: %j", async (...flags) => {
+    const directory = makeTemporaryDirectory();
+    const statePaths = createStatePaths(directory);
+    const htmlFile = path.join(directory, "plan.html");
+    const manifestFile = path.join(directory, "refs.json");
+    fs.writeFileSync(htmlFile, '<img src="refs/hero">');
+    fs.writeFileSync(path.join(directory, "hero.png"), Buffer.from("image"));
+    fs.writeFileSync(manifestFile, JSON.stringify({ hero: "./hero.png" }));
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
+    fs.writeFileSync(statePaths.drafts, JSON.stringify({ files: {} }));
+    const before = fs
+      .readdirSync(statePaths.directory)
+      .map((name) => [name, fs.readFileSync(path.join(statePaths.directory, name), "utf8")]);
+    let requests = 0;
+
+    await expect(
+      runCli(["upload", htmlFile, "--refs-file", manifestFile, ...flags], {
+        version: "0.1.0",
+        statePaths,
+        fetchImpl: async () => {
+          requests += 1;
+          return uploadResponse();
+        },
+        output: captureOutput(),
+      }),
+    ).rejects.toThrow("--draft");
+
+    expect(requests).toBe(0);
+    expect(
+      fs
+        .readdirSync(statePaths.directory)
+        .map((name) => [name, fs.readFileSync(path.join(statePaths.directory, name), "utf8")]),
+    ).toEqual(before);
+  });
+
   test("sends bearer auth and reuses the saved draft mapping", async () => {
     const homeDirectory = makeTemporaryDirectory();
     const statePaths = createStatePaths(homeDirectory);
@@ -64,6 +102,31 @@ describe("upload", () => {
       fingerprintApiKey("pushdraft_secret"),
     );
     expect(fs.readFileSync(statePaths.drafts, "utf8")).not.toContain("pushdraft_secret");
+  });
+
+  test("updates an explicit draft after uploading its reference images", async () => {
+    const directory = makeTemporaryDirectory();
+    const statePaths = createStatePaths(directory);
+    const htmlFile = path.join(directory, "plan.html");
+    const manifestFile = path.join(directory, "refs.json");
+    fs.writeFileSync(htmlFile, '<img src="refs/hero">');
+    fs.writeFileSync(path.join(directory, "hero.png"), Buffer.from("image"));
+    fs.writeFileSync(manifestFile, JSON.stringify({ hero: "./hero.png" }));
+    saveCredentials(statePaths, "pushdraft_secret", "https://pushdraft.example");
+    const draftIds: Array<string | null | undefined> = [];
+
+    await runCli(["upload", htmlFile, "--refs-file", manifestFile, "--draft", "q43kvvtxix1x"], {
+      version: "0.1.0",
+      statePaths,
+      output: captureOutput(),
+      fetchImpl: async (_input, init) => {
+        if (typeof init?.body !== "string") throw new Error("Expected a JSON request body.");
+        const payload = uploadPayloadSchema.parse(JSON.parse(init.body) as unknown);
+        draftIds.push(payload.draftId);
+        return uploadResponse();
+      },
+    });
+    expect(draftIds).toEqual([null, "q43kvvtxix1x"]);
   });
 
   test("sends named references with HTML uploads", async () => {

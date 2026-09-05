@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { isJsonObject } from "./api-types.js";
 import { CliError } from "./errors.js";
+import { withFileLock } from "./file-lock.js";
 
 export const DEFAULT_API_URL = "https://pushdraft.dev";
 
@@ -44,6 +45,7 @@ export interface DraftMapping {
 
 export interface DraftState {
   files: Record<string, DraftMapping>;
+  contexts?: Record<string, DraftMapping[]>;
 }
 
 interface ResolveAuthOptions {
@@ -132,11 +134,51 @@ export function readDraftState(paths: StatePaths): DraftState {
     const parsed = parseDraftMapping(mapping);
     if (parsed !== null) files[filename] = parsed;
   }
-  return { files };
+  const contexts: Record<string, DraftMapping[]> = {};
+  if (isJsonObject(value.contexts)) {
+    for (const [filename, mappings] of Object.entries(value.contexts)) {
+      if (!Array.isArray(mappings)) continue;
+      contexts[filename] = mappings.flatMap((mapping: unknown) => {
+        const parsed = parseDraftMapping(mapping);
+        return parsed === null ? [] : [parsed];
+      });
+    }
+  }
+  return { files, contexts };
 }
 
 export function writeDraftState(paths: StatePaths, state: DraftState): void {
   writeJson(paths, paths.drafts, state);
+}
+
+export async function updateDraftState(
+  paths: StatePaths,
+  update: (state: DraftState) => void,
+): Promise<void> {
+  ensureStateDirectory(paths);
+  await withFileLock(`${paths.drafts}.lock`, async () => {
+    const state = readDraftState(paths);
+    update(state);
+    writeDraftState(paths, state);
+  });
+}
+
+export async function withUploadLocks<T>(
+  paths: StatePaths,
+  filenames: string[],
+  action: () => Promise<T>,
+): Promise<T> {
+  ensureStateDirectory(paths);
+  const locks = [...new Set(filenames)].sort();
+  async function acquire(index: number): Promise<T> {
+    const filename = locks[index];
+    if (filename === undefined) return action();
+    const hash = createHash("sha256").update(filename).digest("hex");
+    return withFileLock(path.join(paths.directory, `upload-${hash}.lock`), () =>
+      acquire(index + 1),
+    );
+  }
+  return acquire(0);
 }
 
 export function mappedDraftId(
@@ -146,19 +188,59 @@ export function mappedDraftId(
   apiKeyFingerprint: string,
   accountId?: string,
 ): string | undefined {
-  const mapping = state.files[filename];
-  if (mapping === undefined) return undefined;
-  if (mapping.apiUrl === undefined || normalizeApiUrl(mapping.apiUrl) !== normalizeApiUrl(apiUrl)) {
-    return undefined;
-  }
+  const mappings = state.contexts?.[filename] ?? [];
+  const latest = state.files[filename];
+  const candidates = latest === undefined ? mappings : [latest, ...mappings];
+  return candidates.find((mapping) => matchesMapping(mapping, apiUrl, apiKeyFingerprint, accountId))
+    ?.draftId;
+}
 
-  if (accountId !== undefined && mapping.accountId !== undefined) {
-    return accountId === mapping.accountId ? mapping.draftId : undefined;
-  }
+export function setDraftMapping(state: DraftState, filename: string, mapping: DraftMapping): void {
+  const contexts = (state.contexts ??= {});
+  const previous = state.files[filename];
+  const candidates = contexts[filename] ?? (previous === undefined ? [] : [previous]);
+  // An exact key match keeps its previously verified account when auth set or
+  // an environment key supplies no account ID. Otherwise rotation can restore
+  // an older draft after an explicit --new upload with the same key.
+  const accountId =
+    mapping.accountId ??
+    candidates.find(
+      (candidate) => candidate.accountId !== undefined && sameMappingContext(candidate, mapping),
+    )?.accountId;
+  const latest = accountId === undefined ? mapping : { ...mapping, accountId };
+  contexts[filename] = [
+    latest,
+    ...candidates.filter((candidate) => !sameMappingContext(candidate, latest)),
+  ];
+  // Keep the most recent mapping readable by older CLI versions.
+  state.files[filename] = latest;
+}
 
-  // auth set, environment keys, and older mappings have no verified account.
-  // An exact key match is the only safe fallback for those cases.
-  return mapping.apiKeyFingerprint === apiKeyFingerprint ? mapping.draftId : undefined;
+function sameMappingContext(left: DraftMapping, right: DraftMapping): boolean {
+  if (
+    left.apiUrl === undefined ||
+    right.apiUrl === undefined ||
+    normalizeApiUrl(left.apiUrl) !== normalizeApiUrl(right.apiUrl)
+  )
+    return false;
+  if (left.accountId !== undefined && right.accountId !== undefined) {
+    return left.accountId === right.accountId;
+  }
+  return left.apiKeyFingerprint !== undefined && left.apiKeyFingerprint === right.apiKeyFingerprint;
+}
+
+function matchesMapping(
+  mapping: DraftMapping,
+  apiUrl: string,
+  apiKeyFingerprint: string,
+  accountId?: string,
+): boolean {
+  if (mapping.apiUrl === undefined || normalizeApiUrl(mapping.apiUrl) !== normalizeApiUrl(apiUrl))
+    return false;
+  if (accountId !== undefined && mapping.accountId !== undefined)
+    return accountId === mapping.accountId;
+  // Unverified keys may only reuse mappings with an exact key fingerprint.
+  return mapping.apiKeyFingerprint === apiKeyFingerprint;
 }
 
 export function fingerprintApiKey(apiKey: string): string {

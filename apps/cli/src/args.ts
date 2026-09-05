@@ -185,6 +185,12 @@ function parseUploadArgs(argv: string[]): ParsedCommand {
   });
   if (values.help === true) return { kind: "help", text: UPLOAD_HELP };
   const file = expectOnePositional(positionals, "file", UPLOAD_HELP);
+  if (values.draft !== undefined && !draftIdSchema.safeParse(values.draft).success) {
+    throw new CliError("Invalid --draft: expected 12 lowercase letters or digits.");
+  }
+  if (values.draft !== undefined && values.new === true) {
+    throw new CliError("--draft and --new cannot be used together.");
+  }
   const references = parseReferences(values.ref);
   return {
     kind: "upload",

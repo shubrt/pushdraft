@@ -7,11 +7,12 @@ authentication.
 
 Production runs at `https://pushdraft.dev`, with drafts on wildcard subdomains.
 Every push to `main` triggers a Railway deployment to production. The repository
-has no staging environment or CI pipelines. Pull requests get an ephemeral
+has no staging environment or automatic QA pipeline. The `preview-domains`
+GitHub Actions workflow provisions and removes preview domains. Pull requests get an ephemeral
 Railway PR environment with its own Postgres instance and a generated
 `up.railway.app` domain. On boot, preview environments seed the account and
 API-key hash from the `PREVIEW_SEED_*` variables, so the production CLI key
-works there and switching targets is just `pushdraft --api-url <preview-url>`
+works there and a preview upload uses `pushdraft upload ./plan.html --api-url <preview-url>`
 (or the `API_URL` environment variable). Shoo issues a different pairwise
 subject per origin, so a preview sign-in matches the seeded account through the
 stable `PREVIEW_SEED_PII_SUBJECT` instead of the production subject. Draft
@@ -38,6 +39,11 @@ npx pushdraft upload ./plan.html
 # or
 bunx pushdraft upload ./plan.html
 ```
+
+The CLI remembers each file separately for each API URL and account. Switching
+back to a previous target updates its original draft. Verified key rotation keeps
+these mappings; unverified keys only reuse mappings for the exact same key.
+Existing mappings in `~/.pushdraft/drafts.json` are preserved on the next upload.
 
 Image uploads accept complete static PNG, JPEG, and static or animated WebP files
 and keep their original bytes. Animated PNG is not supported; use animated WebP
@@ -124,6 +130,9 @@ vp run db:deploy
 vp run -F @pushdraft/api dev
 ```
 
+API start and migration scripts load `.env` from the repository root. Exported
+environment variables take precedence, and deployments can run without a `.env` file.
+
 The apex runs at `http://localhost:3003`. Drafts use
 `http://<draft-id>.localhost:3003`; local DNS support for wildcard localhost names
 depends on the browser and operating system.
@@ -137,11 +146,20 @@ node apps/cli/dist/cli.js auth login --api-url http://localhost:3003
 
 ## Checks
 
+The browser layout regression checks the draft list, details and CLI setup with
+long metadata at 320, 375 and 1050 CSS pixels. Install Chromium once, then run it:
+
+```bash
+vp exec playwright install chromium
+vp run test:browser
+```
+
 ```bash
 vp run qa
 ```
 
-`qa` runs formatting, linting, `sherif`, typechecks and the test suite. Tests live
+`qa` runs formatting, linting, `sherif`, typechecks and the test suite locally.
+The preview-domain workflow does not run these checks. Tests live
 in each package's `test/` directory and run from the repository root:
 
 ```bash
@@ -149,9 +167,11 @@ vp test run     # single pass
 vp test watch   # watch mode
 ```
 
-The API keeps every browser page and draft private. Browser access uses a Shoo
-session plus a one-time subdomain handshake. Agents use a Bearer API key for
-listing, uploading and fetching draft files.
+The start page is public. Access to your draft list and account pages requires
+a Shoo session. Opening your draft content also uses a one-time subdomain
+handshake. Valid guest links grant access to the shared version without a
+Pushdraft account until they expire or are revoked. Agents use a Bearer API key
+for listing, uploading and fetching their draft files.
 
 ## License
 

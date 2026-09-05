@@ -18,13 +18,15 @@ import { requestJson, type Fetch } from "./http.js";
 import { collectCiMetadata, collectGitMetadata, sha256 } from "./metadata.js";
 import { readReferencesManifest, type LocalImageReference } from "./references-manifest.js";
 import {
+  setDraftMapping,
   createStatePaths,
   fingerprintApiKey,
   mappedDraftId,
   readAuth,
   readDraftState,
   saveCredentials,
-  writeDraftState,
+  updateDraftState,
+  withUploadLocks,
   type DraftState,
   type StatePaths,
 } from "./state.js";
@@ -216,50 +218,65 @@ async function upload(
     command.referencesFile === undefined ? [] : readReferencesManifest(command.referencesFile);
   validateReferenceNames(command.references, localReferences);
   const imagePlans = prepareImageUploads(localReferences);
-  const draftState = readDraftState(statePaths);
-  const environment: UploadEnvironment = {
-    apiKey,
-    apiUrl,
-    apiKeyFingerprint,
-    accountId: auth.accountId,
-    fetchImpl,
-    version,
-  };
+  return withUploadLocks(
+    statePaths,
+    [resolvedFile, ...imagePlans.map((plan) => plan.filename)],
+    async () => {
+      const draftState = readDraftState(statePaths);
+      const environment: UploadEnvironment = {
+        apiKey,
+        apiUrl,
+        apiKeyFingerprint,
+        accountId: auth.accountId,
+        fetchImpl,
+        version,
+      };
 
-  const { completed, failed } = await uploadReferencedImages(imagePlans, draftState, environment);
-  for (const upload of completed) {
-    storeDraftMapping(draftState, upload.plan.filename, upload.result, environment);
-  }
-  if (completed.length > 0) {
-    writeDraftState(statePaths, draftState);
-    logImageUploads(completed, output);
-  }
-  if (failed.length > 0) throw imageUploadError(failed);
+      const { completed, failed } = await uploadReferencedImages(
+        imagePlans,
+        draftState,
+        environment,
+      );
+      for (const upload of completed) {
+        storeDraftMapping(draftState, upload.plan.filename, upload.result, environment);
+      }
+      if (completed.length > 0) {
+        await updateDraftState(statePaths, (state) => {
+          for (const upload of completed)
+            storeDraftMapping(state, upload.plan.filename, upload.result, environment);
+        });
+        logImageUploads(completed, output);
+      }
+      if (failed.length > 0) throw imageUploadError(failed);
 
-  const references = mergeReferences(command.references, completed);
-  const draftId = command.forceNew
-    ? null
-    : (command.draftId ??
-      mappedDraftId(draftState, resolvedFile, apiUrl, apiKeyFingerprint, auth.accountId) ??
-      null);
-  const result = await uploadFile(
-    resolvedFile,
-    file,
-    draftId,
-    command.description,
-    references,
-    environment,
+      const references = mergeReferences(command.references, completed);
+      const draftId = command.forceNew
+        ? null
+        : (command.draftId ??
+          mappedDraftId(draftState, resolvedFile, apiUrl, apiKeyFingerprint, auth.accountId) ??
+          null);
+      const result = await uploadFile(
+        resolvedFile,
+        file,
+        draftId,
+        command.description,
+        references,
+        environment,
+      );
+
+      storeDraftMapping(draftState, resolvedFile, result, environment);
+      await updateDraftState(statePaths, (state) => {
+        storeDraftMapping(state, resolvedFile, result, environment);
+      });
+
+      output.log(draftId === null ? "Uploaded draft" : "Updated draft");
+      output.log(`URL: ${result.publicUrl}`);
+      output.log(`Raw ${file.kind === "html" ? "HTML" : "image"}: ${result.rawUrl}`);
+      output.log(`Draft ID: ${result.draftId}`);
+      output.log(`Version: ${result.versionNumber}`);
+      for (const warning of result.warnings) output.warn(`Warning: ${warning}`);
+    },
   );
-
-  storeDraftMapping(draftState, resolvedFile, result, environment);
-  writeDraftState(statePaths, draftState);
-
-  output.log(draftId === null ? "Uploaded draft" : "Updated draft");
-  output.log(`URL: ${result.publicUrl}`);
-  output.log(`Raw ${file.kind === "html" ? "HTML" : "image"}: ${result.rawUrl}`);
-  output.log(`Draft ID: ${result.draftId}`);
-  output.log(`Version: ${result.versionNumber}`);
-  for (const warning of result.warnings) output.warn(`Warning: ${warning}`);
 }
 
 function validateReferenceNames(
@@ -418,7 +435,7 @@ function storeDraftMapping(
   result: UploadResponse,
   environment: UploadEnvironment,
 ): void {
-  draftState.files[filename] = {
+  setDraftMapping(draftState, filename, {
     draftId: result.draftId,
     publicUrl: result.publicUrl,
     rawUrl: result.rawUrl,
@@ -427,7 +444,7 @@ function storeDraftMapping(
     apiUrl: environment.apiUrl,
     apiKeyFingerprint: environment.apiKeyFingerprint,
     accountId: environment.accountId,
-  };
+  });
 }
 
 function mergeReferences(

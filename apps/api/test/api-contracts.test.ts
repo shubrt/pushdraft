@@ -89,6 +89,64 @@ describe("API response contracts", () => {
     expect(fileInsert?.values[2]).toBe("draft.html");
   });
 
+  test.each([
+    "https://ci.example/run/123",
+    `https://ci.example/run/${"long-path/".repeat(50)}?token=preserve%2Fthis`,
+    null,
+    undefined,
+  ])("preserves CI run URL %s through upload and detail", async (ciRunUrl) => {
+    let storedUrl: unknown;
+    const database = transactionalDatabase(
+      uploadWriteHandler((call) => {
+        const sql = compactSql(call.text);
+        if (sql.startsWith("INSERT INTO draft_versions")) {
+          storedUrl = call.values[16];
+          return { rows: [] };
+        }
+        if (sql.includes("COUNT(all_versions.id)::int AS version_count"))
+          return { rows: [draftRow()] };
+        if (sql.includes("FROM draft_versions AS v JOIN files AS f"))
+          return {
+            rows: [
+              {
+                id: "version_ci",
+                version_number: 1,
+                created_at: CREATED_AT,
+                git_branch: null,
+                git_commit_sha: null,
+                git_commit_subject: null,
+                git_dirty: null,
+                cli_version: null,
+                ci_provider: null,
+                ci_run_url: storedUrl,
+                ci_actor: null,
+                file_id: "file_ci",
+                media_type: "text/html",
+                original_filename: "draft.html",
+                byte_size: 42,
+                sha256: FILE_SHA256,
+              },
+            ],
+          };
+        return null;
+      }),
+    );
+    const response = await apiRequest("/api/uploads", database, {
+      method: "POST",
+      body: JSON.stringify({
+        html: "<!doctype html><title>CI run</title>",
+        metadata: { ciRunUrl },
+      }),
+    });
+    expect(response.status).toBe(201);
+    expect(storedUrl).toBe(ciRunUrl ?? null);
+    const uploaded = uploadResponseSchema.parse(await responseJson(response));
+    const detail = draftDetailResponseSchema.parse(
+      await getDraftDetail(database, TEST_CONFIG, ACCOUNT_ID, uploaded.draftId),
+    );
+    expect(detail.versions[0]?.metadata.ciRunUrl).toBe(ciRunUrl ?? null);
+  });
+
   test("POST /api/uploads updates a known draft", async () => {
     const database = transactionalDatabase(
       uploadWriteHandler((call) => {
@@ -142,6 +200,23 @@ describe("API response contracts", () => {
 });
 
 describe("API error contracts", () => {
+  test.each(["not-a-url", "", "/relative/run/1"])(
+    "rejects invalid CI run URL %s before persistence",
+    async (ciRunUrl) => {
+      const database = authenticatedDatabase();
+      const response = await apiRequest("/api/uploads", database, {
+        method: "POST",
+        body: JSON.stringify({
+          html: "<!doctype html><title>CI run</title>",
+          metadata: { ciRunUrl },
+        }),
+      });
+      expect(response.status).toBe(422);
+      expect(apiErrorSchema.parse(await responseJson(response)).ok).toBe(false);
+      expect(database.calls).toHaveLength(1);
+    },
+  );
+
   test.each([ANIMATED_PNG, CORRUPT_ANIMATED_PNG])(
     "rejects APNG before persistence",
     async (bytes) => {
