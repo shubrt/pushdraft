@@ -476,7 +476,7 @@ async function handleUpload(
     return json({ ok: false, errors: validation.errors, warnings: validation.warnings }, 422);
   }
   if (payload.image !== undefined) {
-    const imageValidation = validateImage(
+    const imageValidation = await validateImage(
       payload.image.base64,
       payload.image.mediaType,
       config.maxHtmlBytes,

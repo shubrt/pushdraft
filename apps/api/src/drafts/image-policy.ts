@@ -1,12 +1,22 @@
 import type { RasterImageMediaType } from "@pushdraft/contracts";
+import sharp from "sharp";
+
+// Bound raw decode output to 64 MiB for RGBA, including all animation frames.
+const MAX_DECODED_PIXELS = 16_777_216;
+
+const PNG_CRC_TABLE = Uint32Array.from({ length: 256 }, (_, index) => {
+  let value = index;
+  for (let bit = 0; bit < 8; bit++) value = (value >>> 1) ^ (value & 1 ? 0xedb88320 : 0);
+  return value >>> 0;
+});
 
 export type ImageValidation = { ok: true; bytes: Buffer } | { ok: false; errors: string[] };
 
-export function validateImage(
+export async function validateImage(
   base64: string,
   mediaType: RasterImageMediaType,
   maxBytes: number,
-): ImageValidation {
+): Promise<ImageValidation> {
   const bytes = decodeBase64(base64);
   if (!bytes) return { ok: false, errors: ["Image content is not valid base64."] };
   if (bytes.byteLength === 0) return { ok: false, errors: ["Image file is empty."] };
@@ -19,7 +29,42 @@ export function validateImage(
     errors.push(`Image bytes do not match declared media type ${mediaType}.`);
   }
 
-  return errors.length === 0 ? { ok: true, bytes } : { ok: false, errors };
+  if (errors.length > 0) return { ok: false, errors };
+
+  try {
+    const container = inspectContainer(bytes, mediaType);
+    if (container === "animated-png") {
+      return {
+        ok: false,
+        errors: ["Animated PNG images are not supported. Use a static PNG or animated WebP."],
+      };
+    }
+    if (container !== "complete") throw new Error("Incomplete image container.");
+    // Decode every pixel and animated WebP frame; metadata only inspects headers.
+    // Some decoder warnings do not reject the promise, even with failOn set.
+    let warned = false;
+    const image = sharp(bytes, {
+      failOn: "warning",
+      animated: true,
+      limitInputPixels: MAX_DECODED_PIXELS,
+    });
+    await image
+      .on("warning", () => {
+        warned = true;
+      })
+      .raw()
+      .toBuffer();
+    if (warned) throw new Error("Image decoder reported corrupt data.");
+    return { ok: true, bytes };
+  } catch (error) {
+    if (error instanceof Error && error.message === "Input image exceeds pixel limit") {
+      return {
+        ok: false,
+        errors: [`Image exceeds the limit of ${MAX_DECODED_PIXELS} decoded pixels.`],
+      };
+    }
+    return { ok: false, errors: [`Image file is not a complete, decodable ${mediaType} image.`] };
+  }
 }
 
 function decodeBase64(value: string): Buffer | null {
@@ -49,4 +94,44 @@ function startsWith(bytes: Uint8Array, signature: readonly number[]): boolean {
 
 function at(bytes: Uint8Array, offset: number, signature: readonly number[]): boolean {
   return signature.every((value, index) => bytes[offset + index] === value);
+}
+
+function inspectContainer(
+  bytes: Buffer,
+  mediaType: RasterImageMediaType,
+): "complete" | "incomplete" | "animated-png" {
+  if (mediaType === "image/jpeg") {
+    // JPEG readers allow application data after the end-of-image marker.
+    return bytes.includes(Buffer.from([0xff, 0xd9]), 2) ? "complete" : "incomplete";
+  }
+  if (mediaType === "image/webp") {
+    if (bytes.readUInt32LE(4) !== bytes.length - 8) return "incomplete";
+    let offset = 12;
+    while (offset + 8 <= bytes.length) {
+      const size = bytes.readUInt32LE(offset + 4);
+      offset += 8 + size + (size % 2);
+    }
+    return offset === bytes.length ? "complete" : "incomplete";
+  }
+  let offset = 8;
+  while (offset + 12 <= bytes.length) {
+    const size = bytes.readUInt32BE(offset);
+    const type = bytes.toString("ascii", offset + 4, offset + 8);
+    const end = offset + 12 + size;
+    if (end > bytes.length) return "incomplete";
+    if (pngCrc(bytes.subarray(offset + 4, end - 4)) !== bytes.readUInt32BE(end - 4)) {
+      return "incomplete";
+    }
+    // Sharp decodes only the default PNG image, leaving APNG frames unchecked.
+    if (type === "acTL" || type === "fcTL" || type === "fdAT") return "animated-png";
+    offset = end;
+    if (type === "IEND") return size === 0 && offset === bytes.length ? "complete" : "incomplete";
+  }
+  return "incomplete";
+}
+
+function pngCrc(bytes: Uint8Array): number {
+  let crc = 0xffffffff;
+  for (const byte of bytes) crc = (crc >>> 8) ^ PNG_CRC_TABLE[(crc ^ byte) & 0xff]!;
+  return (crc ^ 0xffffffff) >>> 0;
 }

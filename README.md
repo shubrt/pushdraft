@@ -45,6 +45,12 @@ back to a previous target updates its original draft. Verified key rotation keep
 these mappings; unverified keys only reuse mappings for the exact same key.
 Existing mappings in `~/.pushdraft/drafts.json` are preserved on the next upload.
 
+Image uploads accept complete static PNG, JPEG, and static or animated WebP files
+and keep their original bytes. Animated PNG is not supported; use animated WebP
+instead. Images are limited to 16,777,216 decoded pixels across all animation frames,
+as well as the configured upload byte limit. This bounds raw decoding to 64 MiB
+for RGBA images.
+
 HTML drafts can reference the current version of an image draft by name. For
 an existing image draft, attach its ID directly:
 

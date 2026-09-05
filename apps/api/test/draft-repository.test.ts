@@ -18,6 +18,8 @@ import {
   unexpectedQuery,
 } from "./helpers";
 
+import { PNG } from "./image-fixtures";
+
 const ACCOUNT_ID = "acct_references";
 const API_KEY_ID = "key_references";
 const TARGET_DRAFT_ID = "mnopqrstuvwx";
@@ -114,7 +116,7 @@ describe("draft uploads", () => {
       }
       return unexpectedQuery(call);
     });
-    const bytes = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const bytes = PNG;
 
     const result = await uploadDraft(
       database,

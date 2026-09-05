@@ -6,6 +6,7 @@ packages:
 allowBuilds:
   bun: true
   esbuild: true
+  sharp: true
 
 # Hoist type packages to the root node_modules so tsc can name inferred
 # types by bare specifier during declaration checks (avoids TS2742 under
