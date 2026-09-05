@@ -300,7 +300,7 @@ async function handleApex(
     ]);
     return detail
       ? html(renderDraftDetail(session, readCsrfToken(request.headers) ?? "", detail, shares))
-      : html(renderNotFound(), 404);
+      : html(renderNotFound(config.publicUrl.origin), 404);
   }
 
   const shareFormMatch = url.pathname.match(/^\/drafts\/([a-z0-9]{12})\/share$/);
@@ -309,7 +309,7 @@ async function handleApex(
     const detail = await getDraftDetail(database, config, session.accountId, shareFormMatch[1]);
     return detail && !detail.draft.disabled && detail.draft.latestVersionNumber !== null
       ? html(renderDraftShareForm(session, readCsrfToken(request.headers) ?? "", detail))
-      : html(renderNotFound(), 404);
+      : html(renderNotFound(config.publicUrl.origin), 404);
   }
 
   const createShareMatch = url.pathname.match(/^\/drafts\/([a-z0-9]{12})\/shares$/);
@@ -338,7 +338,7 @@ async function handleApex(
       }
       throw error;
     }
-    if (!created) return html(renderNotFound(), 404);
+    if (!created) return html(renderNotFound(config.publicUrl.origin), 404);
     const nonce = randomToken(16);
     return html(
       renderDraftShareCreated(session, readCsrfToken(request.headers) ?? "", created, nonce),
@@ -363,7 +363,7 @@ async function handleApex(
       revokeShareMatch[1],
       revokeShareMatch[2],
     );
-    if (!revoked) return html(renderNotFound(), 404);
+    if (!revoked) return html(renderNotFound(config.publicUrl.origin), 404);
     return redirect(new URL(`/drafts/${revokeShareMatch[1]}`, config.publicUrl).toString());
   }
 
@@ -404,9 +404,10 @@ async function handleApex(
   if (request.method === "GET" && bridgeMatch?.[1]) {
     if (!session) return html(renderSignIn(url.pathname + url.search));
     const version = parsePositiveVersion(url.searchParams.get("version"));
-    if (url.searchParams.has("version") && version === null) return html(renderNotFound(), 404);
+    if (url.searchParams.has("version") && version === null)
+      return html(renderNotFound(config.publicUrl.origin), 404);
     const ticket = await createDraftAccessTicket(database, session, bridgeMatch[1], version);
-    if (!ticket) return html(renderNotFound(), 404);
+    if (!ticket) return html(renderNotFound(config.publicUrl.origin), 404);
     const action = draftUrl(config, bridgeMatch[1], "/_auth/exchange");
     const nonce = randomToken(16);
     return html(renderDraftBridge(action, ticket.token, nonce), 200, [], {
@@ -414,7 +415,7 @@ async function handleApex(
     });
   }
 
-  return html(renderNotFound(), 404);
+  return html(renderNotFound(config.publicUrl.origin), 404);
 }
 
 async function handleApi(
@@ -565,7 +566,7 @@ async function handleDraftHost(
   }
 
   const route = parseDraftContentRoute(url.pathname);
-  if (!route) return html(renderNotFound(), 404);
+  if (!route) return html(renderNotFound(config.publicUrl.origin), 404);
   if (request.method !== "GET" && request.method !== "HEAD") {
     return methodNotAllowed("GET, HEAD");
   }
@@ -630,7 +631,7 @@ async function handleDraftHost(
     return redirect(draftUrl(config, draftId, `/v/${access.versionNumber}/`), 303);
   }
   if (access.kind === "share" && !sharedRouteAllows(route, access.versionNumber)) {
-    return html(renderNotFound(), 404);
+    return html(renderNotFound(config.publicUrl.origin), 404);
   }
 
   const content =
@@ -647,7 +648,7 @@ async function handleDraftHost(
             route.name,
           )
         : await getStoredContent(database, access.accountId, draftId, route.versionNumber);
-  if (!content) return html(renderNotFound(), 404);
+  if (!content) return html(renderNotFound(config.publicUrl.origin), 404);
 
   const headers = new Headers({
     "content-type":

@@ -275,10 +275,10 @@ export function renderDraftShareUnavailable(apexUrl = ""): string {
   );
 }
 
-export function renderNotFound(): string {
+export function renderNotFound(apexUrl = ""): string {
   return page(
     "Not found · pushdraft",
-    `${publicHeader()}<main class="center page-shell"><div class="center-content"><p class="eyebrow">404</p><h1>Not found.</h1><p><a href="/">Return home</a></p></div></main>`,
+    `${publicHeader(apexUrl)}<main class="center page-shell"><div class="center-content"><p class="eyebrow">404</p><h1>Not found.</h1><p><a href="${escapeHtml(apexPath(apexUrl, "/"))}">Return home</a></p></div></main>`,
   );
 }
 
