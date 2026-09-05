@@ -16,7 +16,7 @@ describe("parseCliArgs", () => {
         "upload",
         "plan.html",
         "--draft",
-        "draft_123",
+        "q43kvvtxix1x",
         "--description",
         "Launch plan",
         "--ref",
@@ -31,7 +31,7 @@ describe("parseCliArgs", () => {
     ).toEqual({
       kind: "upload",
       file: "plan.html",
-      draftId: "draft_123",
+      draftId: "q43kvvtxix1x",
       forceNew: false,
       description: "Launch plan",
       references: {
@@ -41,6 +41,21 @@ describe("parseCliArgs", () => {
       referencesFile: "pushdraft.assets.json",
       apiUrl: "https://pushdraft.example",
     });
+  });
+
+  test.each(["bad-id", "", "ABC123DEF456", "abc123def45", "abc123def4567"])(
+    "rejects invalid draft ID %j",
+    (draftId) => {
+      expect(() => parseCliArgs(["upload", "plan.html", "--draft", draftId])).toThrow(
+        "Invalid --draft: expected 12 lowercase letters or digits.",
+      );
+    },
+  );
+
+  test("rejects conflicting draft selection flags", () => {
+    expect(() => parseCliArgs(["upload", "plan.html", "--draft", "q43kvvtxix1x", "--new"])).toThrow(
+      "--draft and --new cannot be used together.",
+    );
   });
 
   test("parses the new-draft flag", () => {
