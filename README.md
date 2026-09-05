@@ -118,6 +118,9 @@ vp run db:deploy
 vp run -F @pushdraft/api dev
 ```
 
+API start and migration scripts load `.env` from the repository root. Exported
+environment variables take precedence, and deployments can run without a `.env` file.
+
 The apex runs at `http://localhost:3003`. Drafts use
 `http://<draft-id>.localhost:3003`; local DNS support for wildcard localhost names
 depends on the browser and operating system.
