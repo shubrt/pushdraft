@@ -83,6 +83,47 @@ describe("web rendering", () => {
     expect(rendered).toContain("3 versions");
   });
 
+  test.each([false, true])(
+    "separates repository hosts regardless of input order, reversed=%s",
+    (reverse) => {
+      const githubDraft = { ...DRAFT, repoOrg: "acme", repoName: "product", title: "GitHub draft" };
+      const gitlabDraft = { ...githubDraft, repoHost: "gitlab.com", title: "GitLab draft" };
+      const drafts = [githubDraft, gitlabDraft, { ...githubDraft, title: "Another GitHub draft" }];
+      const rendered = renderDrafts(SESSION, "csrf", reverse ? drafts.reverse() : drafts);
+      const sections = rendered.match(/<section class="repository-section">[\s\S]*?<\/section>/g)!;
+
+      expect(sections).toHaveLength(2);
+      const github = sections.find((section) => section.includes("github.com/acme/product</h2>"))!;
+      const gitlab = sections.find((section) => section.includes("gitlab.com/acme/product</h2>"))!;
+      expect(github).toContain("GitHub draft");
+      expect(github).toContain("Another GitHub draft");
+      expect(github).not.toContain("GitLab draft");
+      expect(github).toContain('href="https://github.com/acme/product"');
+      expect(gitlab).toContain("GitLab draft");
+      expect(gitlab).not.toContain("GitHub draft");
+      expect(gitlab).not.toContain('href="https://github.com/');
+    },
+  );
+
+  test("keeps unknown repository hosts separate and groups drafts without repository metadata", () => {
+    const rendered = renderDrafts(SESSION, "csrf", [
+      DRAFT,
+      { ...DRAFT, repoHost: null, title: "Unknown host draft" },
+      { ...DRAFT, repoOrg: null, repoName: null, repoHost: null, title: "No metadata" },
+      { ...DRAFT, repoOrg: null, repoName: null, repoHost: "gitlab.com", title: "Host only" },
+    ]);
+    const sections = rendered.match(/<section class="repository-section">[\s\S]*?<\/section>/g)!;
+
+    expect(sections).toHaveLength(3);
+    const unknown = sections.find((section) => section.includes("Unknown host/"))!;
+    expect(unknown).toContain("Unknown host draft");
+    expect(unknown).not.toContain('class="repository-link"');
+    const ungrouped = sections.find((section) => section.includes("No repository</h2>"))!;
+    expect(ungrouped).toContain("No metadata");
+    expect(ungrouped).toContain("Host only");
+    expect(ungrouped).not.toContain('class="repository-link"');
+  });
+
   test("escapes user and draft data before placing it in HTML", () => {
     const rendered = renderDrafts(
       { ...SESSION, accountName: '<img src=x onerror="alert(1)">' },
