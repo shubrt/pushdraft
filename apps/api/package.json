@@ -4,11 +4,11 @@
   "type": "module",
   "scripts": {
     "build": "bun build src/index.ts --target bun --outdir dist --external pg && cp src/db/schema.sql dist/schema.sql",
-    "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
+    "dev": "bun --env-file=../../.env --watch src/index.ts",
+    "start": "bun --env-file=../../.env src/index.ts",
     "typecheck": "tsc --noEmit",
-    "db:deploy": "bun src/db/migrate.ts",
-    "db:push": "bun src/db/migrate.ts"
+    "db:deploy": "bun --env-file=../../.env src/db/migrate.ts",
+    "db:push": "bun --env-file=../../.env src/db/migrate.ts"
   },
   "dependencies": {
     "@pushdraft/contracts": "workspace:*",
