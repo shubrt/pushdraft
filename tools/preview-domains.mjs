@@ -169,7 +169,15 @@ async function waitForHealth() {
           }
           return response.status === 200 && (await response.json()).ok === true;
         } catch (error) {
-          probe.status = `request failed: ${error.message}`;
+          const cause = error.cause;
+          const detail =
+            cause && typeof cause === "object"
+              ? [cause.code, cause.message].filter((value) => typeof value === "string").join(": ")
+              : "";
+          probe.status = `request failed: ${error.message}${detail ? ` (${detail})` : ""}`.replace(
+            /[\r\n]/g,
+            " ",
+          );
           return false;
         }
       }),

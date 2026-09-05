@@ -14,7 +14,7 @@ async function runProvision(
   options: {
     apexStatus?: number;
     draftStatus?: number;
-    draftFailure?: string;
+    draftFailure?: string | Error;
     missingChallenge?: boolean;
     providerFailure?: "railway" | "cloudflare";
   } = {},
@@ -78,7 +78,11 @@ async function runProvision(
         { status: options.apexStatus ?? 200 },
       );
     if (input === `https://000000000000.${apexDomain}/raw`) {
-      if (options.draftFailure) throw new Error(options.draftFailure);
+      if (options.draftFailure) {
+        throw typeof options.draftFailure === "string"
+          ? new Error(options.draftFailure)
+          : options.draftFailure;
+      }
       return new Response("Unauthorized", {
         status: options.draftStatus ?? 401,
         headers: options.missingChallenge ? {} : { "www-authenticate": 'Bearer realm="pushdraft"' },
@@ -158,6 +162,19 @@ describe("preview domain provisioning and readiness", () => {
     expect(result.logs.join("\n")).toContain("::warning::");
     expect(result.requests.filter((url) => url.endsWith("/raw")).length).toBeGreaterThan(1);
   });
+
+  test.each(["ENOTFOUND", "CERT_HAS_EXPIRED"])(
+    "preserves Node fetch cause %s in the summary",
+    async (code) => {
+      const cause = Object.assign(new Error(`Transport failed with ${code}`), { code });
+      const result = await runProvision({ draftFailure: new TypeError("fetch failed", { cause }) });
+      expect(result.error).toBeUndefined();
+      expect(result.files.output).toContain("preview_ready=false");
+      expect(result.files.summary).toContain(
+        `fetch failed (${code}: Transport failed with ${code})`,
+      );
+    },
+  );
 
   test.each(["railway", "cloudflare"] as const)(
     "does not label %s provider failures as provisioned",
