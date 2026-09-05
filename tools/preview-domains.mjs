@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { appendFile } from "node:fs/promises";
 // Provisions the per-PR preview domains that draft delivery needs:
 //   up <env>    create the apex and wildcard custom domains on the preview's
 //               api service and upsert the Cloudflare DNS records Railway
@@ -145,17 +146,83 @@ async function upsertRecord(zone, type, name, content) {
 
 async function waitForHealth() {
   const deadline = Date.now() + HEALTH_WAIT_SECONDS * 1000;
-  const url = `https://${apexDomain}/healthz`;
+  const probes = [
+    { name: "apex", url: `https://${apexDomain}/healthz`, status: "not checked" },
+    // A valid but unauthenticated draft route verifies wildcard routing without
+    // creating a draft or requiring an account credential in the workflow.
+    { name: "draft", url: `https://000000000000.${apexDomain}/raw`, status: "not checked" },
+  ];
   for (;;) {
-    try {
-      const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      if (response.ok) return true;
-    } catch {
-      // DNS propagation or certificate issuance still pending.
+    const results = await Promise.all(
+      probes.map(async (probe) => {
+        try {
+          const response = await fetch(probe.url, {
+            signal: AbortSignal.timeout(10000),
+            redirect: "manual",
+          });
+          probe.status = `HTTP ${response.status}`;
+          if (probe.name === "draft") {
+            return (
+              response.status === 401 &&
+              response.headers.get("www-authenticate") === 'Bearer realm="pushdraft"'
+            );
+          }
+          return response.status === 200 && (await response.json()).ok === true;
+        } catch (error) {
+          const cause = error.cause;
+          const detail =
+            cause && typeof cause === "object"
+              ? [cause.code, cause.message].filter((value) => typeof value === "string").join(": ")
+              : "";
+          probe.status = `request failed: ${error.message}${detail ? ` (${detail})` : ""}`.replace(
+            /[\r\n]/g,
+            " ",
+          );
+          return false;
+        }
+      }),
+    );
+    if (results.every(Boolean) || Date.now() >= deadline) {
+      return {
+        ready: results.every(Boolean),
+        probes: probes.map((probe, index) => ({ ...probe, ready: results[index] })),
+      };
     }
-    if (Date.now() > deadline) return false;
-    console.log(`Waiting for ${url}…`);
+    console.log(
+      `Waiting for preview: ${probes.map((probe) => `${probe.name} ${probe.status}`).join(", ")}`,
+    );
     await sleep(15);
+  }
+}
+
+async function reportReadiness(result) {
+  const url = `https://${apexDomain}`;
+  const lines = [
+    "## Preview status",
+    "",
+    `Domains and DNS: provisioned for ${url}`,
+    `Preview readiness: ${result.ready ? "confirmed" : "unconfirmed after timeout"}`,
+    "",
+    ...result.probes.map(
+      (probe) =>
+        `- ${probe.name}: ${probe.ready ? "confirmed" : "unconfirmed"}, ${probe.url}, ${probe.status}`,
+    ),
+    "",
+  ];
+  console.log(lines.join("\n"));
+  if (!result.ready && process.env.GITHUB_ACTIONS === "true") {
+    console.log(
+      "::warning::Preview domains were provisioned, but apex and wildcard readiness was not confirmed before timeout.",
+    );
+  }
+  if (process.env.GITHUB_OUTPUT) {
+    await appendFile(
+      process.env.GITHUB_OUTPUT,
+      `provisioned=true\npreview_ready=${result.ready}\n`,
+    );
+  }
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    await appendFile(process.env.GITHUB_STEP_SUMMARY, lines.join("\n"));
   }
 }
 
@@ -182,12 +249,9 @@ async function up() {
       );
     }
   }
-  const healthy = await waitForHealth();
-  console.log(
-    healthy
-      ? `Preview live: https://${apexDomain}`
-      : `DNS and domains are set; https://${apexDomain} is not answering yet (certificate may still be issuing).`,
-  );
+  // Keep provisioning best-effort after a health timeout. Only both successful
+  // probes confirm readiness; provider failures above still fail the command.
+  await reportReadiness(await waitForHealth());
 }
 
 async function down() {
