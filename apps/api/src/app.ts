@@ -93,15 +93,19 @@ type DraftRequestAccess =
 
 export function createApp({ config, database }: Dependencies) {
   return new Elysia()
+    .onError(({ error, request }) => {
+      const result =
+        error instanceof RequestBodyTooLargeError
+          ? response("Request body too large.", 413, "text/plain; charset=utf-8")
+          : json({ ok: false, error: "Internal server error." }, 500);
+      if (!(error instanceof RequestBodyTooLargeError)) console.error(error);
+      for (const [name, value] of Object.entries(securityHeaders(config, request))) {
+        result.headers.set(name, value);
+      }
+      return result;
+    })
     .onAfterHandle(({ request, responseValue, set }) => {
-      set.headers["x-content-type-options"] = "nosniff";
-      set.headers["cache-control"] = "private, no-store";
-      // Apex forms need a concrete Origin for mutation guards. Draft content stays opaque.
-      set.headers["referrer-policy"] = isApexHostname(config, new URL(request.url).hostname)
-        ? "strict-origin"
-        : "no-referrer";
-      set.headers["x-frame-options"] = "DENY";
-      set.headers["permissions-policy"] = "camera=(), microphone=(), geolocation=()";
+      Object.assign(set.headers, securityHeaders(config, request));
       return responseValue;
     })
     .get("/healthz", async ({ set }) => {
@@ -125,14 +129,20 @@ export function createApp({ config, database }: Dependencies) {
       const draftId = draftIdFromHostname(config, hostname);
       if (draftId) return handleDraftHost(context.request, requestUrl, draftId, config, database);
       return response("Misdirected request.", 421, "text/plain; charset=utf-8");
-    })
-    .onError(({ error }) => {
-      if (error instanceof RequestBodyTooLargeError) {
-        return response("Request body too large.", 413, "text/plain; charset=utf-8");
-      }
-      console.error(error);
-      return json({ ok: false, error: "Internal server error." }, 500);
     });
+}
+
+function securityHeaders(config: AppConfig, request: Request): Record<string, string> {
+  return {
+    "x-content-type-options": "nosniff",
+    "cache-control": "private, no-store",
+    // Apex forms need a concrete Origin for mutation guards. Draft content stays opaque.
+    "referrer-policy": isApexHostname(config, new URL(request.url).hostname)
+      ? "strict-origin"
+      : "no-referrer",
+    "x-frame-options": "DENY",
+    "permissions-policy": "camera=(), microphone=(), geolocation=()",
+  };
 }
 
 async function handleApex(

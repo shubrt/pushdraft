@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vite-plus/test";
+import { describe, expect, test, vi } from "vite-plus/test";
 import type { PoolClient, QueryResultRow } from "pg";
 
 import { createApp } from "../src/app";
@@ -28,6 +28,60 @@ const SHARE_TICKET = "share-access-ticket";
 const SHARE_ID = "share1234567890abcde";
 const SHARED_VERSION = 7;
 const SHARE_EXPIRES_AT = "2099-09-01T12:00:00.000Z";
+
+describe("global error handling", () => {
+  test.each([
+    ["https://pushdraft.example/api/me", "strict-origin"],
+    [`${DRAFT_ORIGIN}/raw`, "no-referrer"],
+  ])("hides and logs internal errors on %s", async (url, referrerPolicy) => {
+    const internalError = new Error("PRIVATE DB ERROR CONTENT");
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const database = createFakeDatabase(() => {
+        throw internalError;
+      });
+      const result = await request(url, database, {
+        headers: { authorization: `Bearer ${OWNER_TOKEN}` },
+      });
+
+      expect(result.status).toBe(500);
+      expect(result.headers.get("content-type")).toContain("application/json");
+      expect(await result.json()).toEqual({ ok: false, error: "Internal server error." });
+      expect(log).toHaveBeenCalledWith(internalError);
+      expectErrorHeaders(result, referrerPolicy);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  test.each([true, false])(
+    "returns 413 for an oversized form, declared length: %s",
+    async (declared) => {
+      const database = browserMutationDatabase();
+      const headers = new Headers(browserMutationHeaders("https://pushdraft.example"));
+      const body = `csrf=${CSRF_TOKEN}&name=${"x".repeat(4096)}`;
+      if (declared) headers.set("content-length", String(Buffer.byteLength(body)));
+      const result = await request("https://pushdraft.example/cli/auth/keys", database, {
+        method: "POST",
+        headers,
+        body,
+      });
+
+      expect(result.status).toBe(413);
+      expect(await result.text()).toBe("Request body too large.");
+      expectErrorHeaders(result, "strict-origin");
+      expect(database.calls).toHaveLength(1);
+    },
+  );
+});
+
+function expectErrorHeaders(result: Response, referrerPolicy: string): void {
+  expect(result.headers.get("cache-control")).toBe("private, no-store");
+  expect(result.headers.get("x-content-type-options")).toBe("nosniff");
+  expect(result.headers.get("referrer-policy")).toBe(referrerPolicy);
+  expect(result.headers.get("x-frame-options")).toBe("DENY");
+  expect(result.headers.get("permissions-policy")).toBe("camera=(), microphone=(), geolocation=()");
+}
 
 describe("host classification", () => {
   test.each([
