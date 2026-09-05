@@ -18,13 +18,13 @@ import { requestJson, type Fetch } from "./http.js";
 import { collectCiMetadata, collectGitMetadata, sha256 } from "./metadata.js";
 import { readReferencesManifest, type LocalImageReference } from "./references-manifest.js";
 import {
+  setDraftMapping,
   createStatePaths,
   fingerprintApiKey,
   mappedDraftId,
   readAuth,
   readDraftState,
   saveCredentials,
-  setDraftMapping,
   writeDraftState,
   type DraftState,
   type StatePaths,
