@@ -211,7 +211,8 @@ export async function uploadDraft(
         validation?.stats.hasInlineScript ?? false,
         JSON.stringify(validation?.stats.externalImageHosts ?? []),
         cleanText(metadata.ciProvider),
-        cleanText(metadata.ciRunUrl),
+        // URL length is bounded by the upload request limit, not the metadata text limit.
+        metadata.ciRunUrl ?? null,
         cleanText(metadata.ciActor),
       ],
     );

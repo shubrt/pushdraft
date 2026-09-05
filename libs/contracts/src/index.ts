@@ -36,7 +36,7 @@ export const uploadMetadataSchema = z
     cliVersion: optionalMetadataStringSchema,
     fileSha256: optionalMetadataStringSchema,
     ciProvider: optionalMetadataStringSchema,
-    ciRunUrl: optionalMetadataStringSchema,
+    ciRunUrl: urlSchema.nullable().optional(),
     ciActor: optionalMetadataStringSchema,
   })
   .passthrough();

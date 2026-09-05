@@ -138,7 +138,17 @@ describe("upload contracts", () => {
     );
   });
 
-  test("keeps additional metadata without validating client-supplied text", () => {
+  test("requires CI run URLs to match the output URL contract", () => {
+    for (const ciRunUrl of ["not a URL", "", "/relative/run/42"]) {
+      assert.equal(
+        uploadPayloadSchema.safeParse({ html: "<title>Plan</title>", metadata: { ciRunUrl } })
+          .success,
+        false,
+      );
+    }
+  });
+
+  test("keeps additional metadata and free-form descriptive text", () => {
     const description = "d".repeat(1_001);
     const parsed = uploadPayloadSchema.parse({
       html: "<title>Plan</title>",
@@ -147,14 +157,14 @@ describe("upload contracts", () => {
         repoOrg: "o".repeat(300),
         gitCommitSha: "not-a-git-hash",
         fileSha256: "not-a-content-hash",
-        ciRunUrl: "not a URL",
+        ciRunUrl: "https://ci.example/run/42",
         agent: { name: "custom-agent", run: 42 },
       },
     });
 
     assert.equal(parsed.description, description);
     assert.equal(parsed.metadata?.gitCommitSha, "not-a-git-hash");
-    assert.equal(parsed.metadata?.ciRunUrl, "not a URL");
+    assert.equal(parsed.metadata?.ciRunUrl, "https://ci.example/run/42");
     assert.deepEqual(parsed.metadata?.agent, { name: "custom-agent", run: 42 });
   });
 });
