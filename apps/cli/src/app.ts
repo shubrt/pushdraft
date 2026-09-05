@@ -18,6 +18,7 @@ import { requestJson, type Fetch } from "./http.js";
 import { collectCiMetadata, collectGitMetadata, sha256 } from "./metadata.js";
 import { readReferencesManifest, type LocalImageReference } from "./references-manifest.js";
 import {
+  setDraftMapping,
   createStatePaths,
   fingerprintApiKey,
   mappedDraftId,
@@ -434,7 +435,7 @@ function storeDraftMapping(
   result: UploadResponse,
   environment: UploadEnvironment,
 ): void {
-  draftState.files[filename] = {
+  setDraftMapping(draftState, filename, {
     draftId: result.draftId,
     publicUrl: result.publicUrl,
     rawUrl: result.rawUrl,
@@ -443,7 +444,7 @@ function storeDraftMapping(
     apiUrl: environment.apiUrl,
     apiKeyFingerprint: environment.apiKeyFingerprint,
     accountId: environment.accountId,
-  };
+  });
 }
 
 function mergeReferences(

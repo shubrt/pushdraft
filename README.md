@@ -40,6 +40,11 @@ npx pushdraft upload ./plan.html
 bunx pushdraft upload ./plan.html
 ```
 
+The CLI remembers each file separately for each API URL and account. Switching
+back to a previous target updates its original draft. Verified key rotation keeps
+these mappings; unverified keys only reuse mappings for the exact same key.
+Existing mappings in `~/.pushdraft/drafts.json` are preserved on the next upload.
+
 HTML drafts can reference the current version of an image draft by name. For
 an existing image draft, attach its ID directly:
 
