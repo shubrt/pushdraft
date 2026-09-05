@@ -168,12 +168,21 @@ export function setDraftMapping(state: DraftState, filename: string, mapping: Dr
   const contexts = (state.contexts ??= {});
   const previous = state.files[filename];
   const candidates = contexts[filename] ?? (previous === undefined ? [] : [previous]);
+  // An exact key match keeps its previously verified account when auth set or
+  // an environment key supplies no account ID. Otherwise rotation can restore
+  // an older draft after an explicit --new upload with the same key.
+  const accountId =
+    mapping.accountId ??
+    candidates.find(
+      (candidate) => candidate.accountId !== undefined && sameMappingContext(candidate, mapping),
+    )?.accountId;
+  const latest = accountId === undefined ? mapping : { ...mapping, accountId };
   contexts[filename] = [
-    mapping,
-    ...candidates.filter((candidate) => !sameMappingContext(candidate, mapping)),
+    latest,
+    ...candidates.filter((candidate) => !sameMappingContext(candidate, latest)),
   ];
   // Keep the most recent mapping readable by older CLI versions.
-  state.files[filename] = mapping;
+  state.files[filename] = latest;
 }
 
 function sameMappingContext(left: DraftMapping, right: DraftMapping): boolean {
@@ -183,8 +192,8 @@ function sameMappingContext(left: DraftMapping, right: DraftMapping): boolean {
     normalizeApiUrl(left.apiUrl) !== normalizeApiUrl(right.apiUrl)
   )
     return false;
-  if (left.accountId !== undefined || right.accountId !== undefined) {
-    return left.accountId !== undefined && left.accountId === right.accountId;
+  if (left.accountId !== undefined && right.accountId !== undefined) {
+    return left.accountId === right.accountId;
   }
   return left.apiKeyFingerprint !== undefined && left.apiKeyFingerprint === right.apiKeyFingerprint;
 }

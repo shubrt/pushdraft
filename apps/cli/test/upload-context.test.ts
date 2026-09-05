@@ -31,9 +31,9 @@ function fixture() {
   const statePaths = createStatePaths(directory);
   const requests: Array<{ filename: string | undefined; draftId: string | null | undefined }> = [];
   let created = 0;
-  async function upload(apiUrl: string, apiKey: string, accountId?: string) {
+  async function upload(apiUrl: string, apiKey: string, accountId?: string, forceNew = false) {
     saveCredentials(statePaths, apiKey, apiUrl, accountId);
-    await runCli(["upload", htmlFile, "--refs-file", manifest], {
+    await runCli(["upload", htmlFile, "--refs-file", manifest, ...(forceNew ? ["--new"] : [])], {
       statePaths,
       version: "test",
       output: { log() {}, warn() {} },
@@ -108,6 +108,21 @@ describe("upload contexts", () => {
       null,
       "draft0000001",
       "draft0000002",
+    ]);
+  });
+
+  test("keeps the latest draft through exact-key use and verified rotation", async () => {
+    const { requests, upload } = fixture();
+    await upload("https://api.example", "key-a", "account-a");
+    await upload("https://api.example", "key-a", undefined, true);
+    await upload("https://api.example", "rotated-a", "account-a");
+    expect(requests.map((request) => request.draftId)).toEqual([
+      null,
+      null,
+      "draft0000001",
+      null,
+      "draft0000001",
+      "draft0000003",
     ]);
   });
 
