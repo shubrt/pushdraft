@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "bun build src/index.ts --target bun --outdir dist --external pg && cp src/db/schema.sql dist/schema.sql",
+    "build": "bun build src/index.ts --target bun --outdir dist --external pg --external sharp && cp src/db/schema.sql dist/schema.sql",
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "typecheck": "tsc --noEmit",
@@ -16,7 +16,8 @@
     "jose": "^6.2.8",
     "nanoid": "^6.0.1",
     "parse5": "^8.0.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@tool/tsconfig": "workspace:*",

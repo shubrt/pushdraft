@@ -18,6 +18,8 @@ import {
   unexpectedQuery,
 } from "./helpers";
 
+import { PNG } from "./image-fixtures";
+
 const DRAFT_ORIGIN = `https://${TEST_DRAFT_ID}.pushdraft.example`;
 const OWNER_TOKEN = "pushdraft_owner-token";
 const FOREIGN_TOKEN = "pushdraft_foreign-token";
@@ -143,7 +145,7 @@ describe("draft authentication", () => {
     ["current parent version", "/refs/hero", null],
     ["chosen parent version", "/v/7/refs/hero", 7],
   ])("serves a live image reference for the %s", async (_label, path, versionNumber) => {
-    const stored = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const stored = PNG;
     const database = createFakeDatabase((call) => {
       const sql = compactSql(call.text);
       if (sql.includes("UPDATE api_keys AS k")) {
@@ -186,7 +188,7 @@ describe("draft authentication", () => {
   });
 
   test("uses the parent draft cookie to authorize its referenced image", async () => {
-    const stored = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const stored = PNG;
     const database = createFakeDatabase((call) => {
       const sql = compactSql(call.text);
       if (sql.startsWith("SELECT s.account_id FROM web_sessions AS s")) {
@@ -382,7 +384,7 @@ describe("shared draft handshake", () => {
 describe("shared draft access", () => {
   test("serves only the pinned document and its snapshotted image", async () => {
     const html = Buffer.from("<!doctype html><title>Shared v7</title>");
-    const image = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const image = PNG;
     const database = activeShareDatabase((call, sql) => {
       if (sql.includes("JOIN draft_share_references AS reference")) {
         expect(call.values).toEqual([

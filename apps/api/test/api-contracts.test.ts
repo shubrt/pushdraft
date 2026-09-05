@@ -21,6 +21,8 @@ import {
   type QueryCall,
 } from "./helpers";
 
+import { CORRUPT_IMAGE_FIXTURES, IMAGE_FIXTURES, JPEG } from "./image-fixtures";
+
 const API_TOKEN = "pushdraft_contract-test-token";
 const ACCOUNT_ID = "acct_contracts";
 const CREATED_AT = "2026-08-13T20:30:00.000Z";
@@ -108,29 +110,60 @@ describe("API response contracts", () => {
     expect(body.title).toBe("Updated draft");
   });
 
-  test("POST /api/uploads stores a validated raster image", async () => {
-    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-    const database = transactionalDatabase(uploadWriteHandler());
-    const response = await apiRequest("/api/uploads", database, {
-      method: "POST",
-      body: JSON.stringify({
-        image: { mediaType: "image/png", base64: png.toString("base64") },
-        filename: "hero.png",
-      }),
-    });
-    const body = uploadResponseSchema.parse(await responseJson(response));
+  test.each(IMAGE_FIXTURES)(
+    "POST /api/uploads preserves validated %s bytes",
+    async (mediaType, bytes) => {
+      const database = transactionalDatabase(uploadWriteHandler());
+      const response = await apiRequest("/api/uploads", database, {
+        method: "POST",
+        body: JSON.stringify({
+          image: { mediaType, base64: bytes.toString("base64") },
+          filename: "hero.image",
+        }),
+      });
+      const body = uploadResponseSchema.parse(await responseJson(response));
 
-    expect(response.status).toBe(201);
-    expect(body.title).toBe("hero.png");
-    const fileInsert = database.calls.find((call) =>
-      compactSql(call.text).startsWith("INSERT INTO files"),
-    );
-    expect(fileInsert?.values.slice(1, 4)).toEqual(["image/png", "hero.png", png.byteLength]);
-    expect(fileInsert?.values[5]).toEqual(png);
-  });
+      expect(response.status).toBe(201);
+      expect(body.title).toBe("hero.image");
+      const fileInsert = database.calls.find((call) =>
+        compactSql(call.text).startsWith("INSERT INTO files"),
+      );
+      expect(fileInsert?.values.slice(1, 4)).toEqual([mediaType, "hero.image", bytes.byteLength]);
+      expect(fileInsert?.values[5]).toEqual(bytes);
+    },
+  );
 });
 
 describe("API error contracts", () => {
+  test.each([
+    ...IMAGE_FIXTURES.map(([mediaType, bytes]) => [mediaType, bytes.subarray(0, 12)] as const),
+    ...CORRUPT_IMAGE_FIXTURES,
+  ])("rejects incomplete or corrupt %s before persistence", async (mediaType, bytes) => {
+    const database = authenticatedDatabase();
+    const response = await apiRequest("/api/uploads", database, {
+      method: "POST",
+      body: JSON.stringify({ image: { mediaType, base64: bytes.toString("base64") } }),
+    });
+    expect(response.status).toBe(422);
+    expect(apiErrorSchema.parse(await responseJson(response)).ok).toBe(false);
+    expect(database.calls).toHaveLength(1);
+  });
+
+  test("retains the supported format list by rejecting GIF", async () => {
+    const database = authenticatedDatabase();
+    const response = await apiRequest("/api/uploads", database, {
+      method: "POST",
+      body: JSON.stringify({
+        image: {
+          mediaType: "image/gif",
+          base64: "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+        },
+      }),
+    });
+    expect(response.status).toBe(422);
+    expect(database.calls).toHaveLength(1);
+  });
+
   test("returns a contract error for malformed JSON", async () => {
     const response = await apiRequest("/api/uploads", authenticatedDatabase(), {
       method: "POST",
@@ -183,7 +216,7 @@ describe("API error contracts", () => {
   });
 
   test("rejects image bytes that do not match the declared media type", async () => {
-    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xdb]);
+    const jpeg = JPEG;
     const response = await apiRequest("/api/uploads", authenticatedDatabase(), {
       method: "POST",
       body: JSON.stringify({
