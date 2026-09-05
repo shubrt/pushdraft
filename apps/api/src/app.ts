@@ -737,7 +737,8 @@ function safeNextPath(value: string | null): string {
 function parsePositiveVersion(value: string | null): number | null {
   if (value === null || !/^\d+$/.test(value)) return null;
   const parsed = Number(value);
-  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+  // Version columns and query casts use PostgreSQL INTEGER.
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= 2_147_483_647 ? parsed : null;
 }
 
 function parseDraftShareTtl(value: string | null): number | null {
