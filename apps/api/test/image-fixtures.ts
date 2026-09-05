@@ -6,6 +6,10 @@ export const PNG = readFileSync(new URL("./fixtures/pixels.png", import.meta.url
 export const JPEG = readFileSync(new URL("./fixtures/pixels.jpeg", import.meta.url));
 export const WEBP = readFileSync(new URL("./fixtures/pixels.webp", import.meta.url));
 export const ANIMATED_WEBP = readFileSync(new URL("./fixtures/animated.webp", import.meta.url));
+export const OVERSIZED_PNG = readFileSync(new URL("./fixtures/oversized.png", import.meta.url));
+export const OVERSIZED_ANIMATION = readFileSync(
+  new URL("./fixtures/oversized-animation.webp", import.meta.url),
+);
 export const IMAGE_FIXTURES = [
   ["image/png", PNG],
   ["image/jpeg", JPEG],

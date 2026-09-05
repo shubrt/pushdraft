@@ -21,7 +21,7 @@ import {
   type QueryCall,
 } from "./helpers";
 
-import { CORRUPT_IMAGE_FIXTURES, IMAGE_FIXTURES, JPEG } from "./image-fixtures";
+import { CORRUPT_IMAGE_FIXTURES, IMAGE_FIXTURES, JPEG, OVERSIZED_PNG } from "./image-fixtures";
 
 const API_TOKEN = "pushdraft_contract-test-token";
 const ACCOUNT_ID = "acct_contracts";
@@ -146,6 +146,23 @@ describe("API error contracts", () => {
     });
     expect(response.status).toBe(422);
     expect(apiErrorSchema.parse(await responseJson(response)).ok).toBe(false);
+    expect(database.calls).toHaveLength(1);
+  });
+
+  test("returns 422 before persistence for a small upload with too many pixels", async () => {
+    const database = authenticatedDatabase();
+    const response = await apiRequest("/api/uploads", database, {
+      method: "POST",
+      body: JSON.stringify({
+        image: { mediaType: "image/png", base64: OVERSIZED_PNG.toString("base64") },
+      }),
+    });
+    expect(response.status).toBe(422);
+    expect(await responseJson(response)).toEqual({
+      ok: false,
+      errors: ["Image exceeds the limit of 16777216 decoded pixels."],
+      warnings: [],
+    });
     expect(database.calls).toHaveLength(1);
   });
 

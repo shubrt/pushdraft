@@ -2,11 +2,26 @@ import { describe, expect, test } from "vite-plus/test";
 
 import { validateImage } from "../src/drafts/image-policy";
 
-import { CORRUPT_IMAGE_FIXTURES, IMAGE_FIXTURES, PNG } from "./image-fixtures";
+import {
+  CORRUPT_IMAGE_FIXTURES,
+  IMAGE_FIXTURES,
+  JPEG,
+  PNG,
+  OVERSIZED_PNG,
+  OVERSIZED_ANIMATION,
+} from "./image-fixtures";
 
 describe("raster image validation", () => {
   test.each(IMAGE_FIXTURES)("accepts complete %s bytes", async (mediaType, bytes) => {
     expect(await validateImage(bytes.toString("base64"), mediaType, 1024)).toEqual({
+      ok: true,
+      bytes,
+    });
+  });
+
+  test("preserves JPEG application data after the end-of-image marker", async () => {
+    const bytes = Buffer.concat([JPEG, Buffer.from("trailing application data")]);
+    expect(await validateImage(bytes.toString("base64"), "image/jpeg", 1024)).toEqual({
       ok: true,
       bytes,
     });
@@ -44,6 +59,20 @@ describe("raster image validation", () => {
     bytes[bytes.length - 1] = bytes.at(-1)! ^ 1;
     expect((await validateImage(bytes.toString("base64"), "image/png", 1024)).ok).toBe(false);
   });
+
+  test.each([
+    ["image/png", OVERSIZED_PNG],
+    ["image/webp", OVERSIZED_ANIMATION],
+  ] as const)(
+    "bounds decoded pixels for %s including all animation frames",
+    async (mediaType, bytes) => {
+      expect(bytes.length).toBeLessThan(512 * 1024);
+      expect(await validateImage(bytes.toString("base64"), mediaType, 512 * 1024)).toEqual({
+        ok: false,
+        errors: ["Image exceeds the limit of 16777216 decoded pixels."],
+      });
+    },
+  );
 
   test("rejects malformed base64", async () => {
     expect(await validateImage("not base64", "image/png", 1024)).toEqual({

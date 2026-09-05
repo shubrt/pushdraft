@@ -1,6 +1,9 @@
 import type { RasterImageMediaType } from "@pushdraft/contracts";
 import sharp from "sharp";
 
+// Bound raw decode output to 64 MiB for RGBA, including all animation frames.
+const MAX_DECODED_PIXELS = 16_777_216;
+
 const PNG_CRC_TABLE = Uint32Array.from({ length: 256 }, (_, index) => {
   let value = index;
   for (let bit = 0; bit < 8; bit++) value = (value >>> 1) ^ (value & 1 ? 0xedb88320 : 0);
@@ -33,7 +36,12 @@ export async function validateImage(
     // Decode every pixel and animated WebP frame; metadata only inspects headers.
     // Some decoder warnings do not reject the promise, even with failOn set.
     let warned = false;
-    await sharp(bytes, { failOn: "warning", animated: true })
+    const image = sharp(bytes, {
+      failOn: "warning",
+      animated: true,
+      limitInputPixels: MAX_DECODED_PIXELS,
+    });
+    await image
       .on("warning", () => {
         warned = true;
       })
@@ -41,7 +49,13 @@ export async function validateImage(
       .toBuffer();
     if (warned) throw new Error("Image decoder reported corrupt data.");
     return { ok: true, bytes };
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === "Input image exceeds pixel limit") {
+      return {
+        ok: false,
+        errors: [`Image exceeds the limit of ${MAX_DECODED_PIXELS} decoded pixels.`],
+      };
+    }
     return { ok: false, errors: [`Image file is not a complete, decodable ${mediaType} image.`] };
   }
 }
@@ -77,7 +91,8 @@ function at(bytes: Uint8Array, offset: number, signature: readonly number[]): bo
 
 function hasCompleteContainer(bytes: Buffer, mediaType: RasterImageMediaType): boolean {
   if (mediaType === "image/jpeg") {
-    return bytes.at(-2) === 0xff && bytes.at(-1) === 0xd9;
+    // JPEG readers allow application data after the end-of-image marker.
+    return bytes.includes(Buffer.from([0xff, 0xd9]), 2);
   }
   if (mediaType === "image/webp") {
     if (bytes.readUInt32LE(4) !== bytes.length - 8) return false;

@@ -39,6 +39,11 @@ npx pushdraft upload ./plan.html
 bunx pushdraft upload ./plan.html
 ```
 
+Image uploads accept complete PNG, JPEG, and WebP files and keep their original
+bytes. Images are limited to 16,777,216 decoded pixels across all animation frames,
+as well as the configured upload byte limit. This bounds raw decoding to 64 MiB
+for RGBA images.
+
 HTML drafts can reference the current version of an image draft by name. For
 an existing image draft, attach its ID directly:
 
