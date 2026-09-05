@@ -24,6 +24,7 @@ import {
   readAuth,
   readDraftState,
   saveCredentials,
+  setDraftMapping,
   writeDraftState,
   type DraftState,
   type StatePaths,
@@ -418,7 +419,7 @@ function storeDraftMapping(
   result: UploadResponse,
   environment: UploadEnvironment,
 ): void {
-  draftState.files[filename] = {
+  setDraftMapping(draftState, filename, {
     draftId: result.draftId,
     publicUrl: result.publicUrl,
     rawUrl: result.rawUrl,
@@ -427,7 +428,7 @@ function storeDraftMapping(
     apiUrl: environment.apiUrl,
     apiKeyFingerprint: environment.apiKeyFingerprint,
     accountId: environment.accountId,
-  };
+  });
 }
 
 function mergeReferences(
