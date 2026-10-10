@@ -1,6 +1,6 @@
 ---
 name: pushdraft-read
-description: Fetch and read HTML from a Pushdraft URL through its authenticated raw endpoint. Use whenever the user provides a pushdraft.dev URL and asks to read, summarize, review, compare, or continue working from it.
+description: Fetch and read HTML from a Pushdraft URL through its authenticated raw endpoint. Use whenever the user provides a draft.shubrt.me URL, or one on the former domain pushdraft.dev, and asks to read, summarize, review, compare, or continue working from it.
 ---
 
 # Read a Pushdraft
@@ -19,12 +19,17 @@ including on failure. Do not redirect the output to a shared temporary path.
 
 Supported URLs are draft subdomains, their `/raw`, `/v/<version>` and
 `/v/<version>/raw` paths, and apex bridge links such as
-`https://pushdraft.dev/<draft-id>?version=2`. Fragments do not affect the version.
+`https://draft.shubrt.me/<draft-id>?version=2`. Fragments do not affect the version.
 The helper checks the draft ID, version and HTML content type in the response;
 an HTTP-200 sign-in page is an error.
 
+With the default origin, links on the former domain `pushdraft.dev` also work.
+The helper reads them from `draft.shubrt.me`, so the key never goes to
+`pushdraft.dev`.
+
 The trusted API origin comes from `--api-url`, `API_URL`, the CLI configuration,
-or `https://pushdraft.dev`. For a preview or self-hosted installation, supply
+or `https://draft.shubrt.me`. A configured `https://pushdraft.dev` counts as
+`https://draft.shubrt.me`. For a preview or self-hosted installation, supply
 its configured public origin:
 
 ```bash

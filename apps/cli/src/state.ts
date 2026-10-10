@@ -7,7 +7,7 @@ import { isJsonObject } from "./api-types.js";
 import { CliError } from "./errors.js";
 import { withFileLock } from "./file-lock.js";
 
-export const DEFAULT_API_URL = "https://pushdraft.dev";
+export const DEFAULT_API_URL = "https://draft.shubrt.me";
 
 export interface StatePaths {
   directory: string;
@@ -263,6 +263,9 @@ export function normalizeApiUrl(value: string): string {
   if (url.username !== "" || url.password !== "" || url.search !== "" || url.hash !== "") {
     throw new CliError("API URL cannot contain credentials, a query, or a fragment.");
   }
+  // Production moved from pushdraft.dev. Mapping the old origin keeps saved
+  // configs and draft mappings pointing at the same drafts.
+  if (url.origin === "https://pushdraft.dev" && url.pathname === "/") return DEFAULT_API_URL;
 
   return normalized;
 }

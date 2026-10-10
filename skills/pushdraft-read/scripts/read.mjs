@@ -5,6 +5,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const DRAFT_ID = /^[a-z0-9]{12}$/;
+const DEFAULT_API_URL = "https://draft.shubrt.me";
+// Former production domain, now only a redirect to DEFAULT_API_URL.
+const LEGACY_API_URL = "https://pushdraft.dev";
+const LEGACY_HOST = /^(?:([a-z0-9]{12})\.)?pushdraft\.dev$/;
 
 function version(value) {
   if (!/^\d+$/.test(value) || Number(value) < 1 || Number(value) > 2147483647) {
@@ -13,9 +17,12 @@ function version(value) {
   return Number(value);
 }
 
-/** Resolve only URLs on the configured Pushdraft origin or one draft subdomain. */
-export function resolveDraftUrl(input, apiUrl = "https://pushdraft.dev") {
-  const apex = new URL(apiUrl);
+/**
+ * Resolve only URLs on the configured Pushdraft origin or one draft subdomain,
+ * plus former pushdraft.dev links when the origin is the production default.
+ */
+export function resolveDraftUrl(input, apiUrl = DEFAULT_API_URL) {
+  let apex = new URL(apiUrl);
   const url = new URL(input);
   if (
     !["http:", "https:"].includes(apex.protocol) ||
@@ -26,6 +33,14 @@ export function resolveDraftUrl(input, apiUrl = "https://pushdraft.dev") {
     apex.pathname !== "/"
   )
     throw new Error("API URL must be a bare http(s) origin.");
+  if (apex.origin === LEGACY_API_URL) apex = new URL(DEFAULT_API_URL);
+  // Old pushdraft.dev links are read from the new origin. Trust still comes only from apiUrl.
+  const legacy =
+    apex.origin === DEFAULT_API_URL &&
+    url.protocol === "https:" &&
+    !url.port &&
+    LEGACY_HOST.exec(url.hostname);
+  if (legacy) url.hostname = legacy[1] ? `${legacy[1]}.${apex.hostname}` : apex.hostname;
   if (url.username || url.password || url.protocol !== apex.protocol || url.port !== apex.port) {
     throw new Error("Draft URL does not match the configured API origin.");
   }
@@ -123,7 +138,7 @@ async function main() {
   const config = await readJson(path.join(stateDirectory, "config.json"));
   const target = resolveDraftUrl(
     input,
-    override ?? process.env.API_URL ?? config.apiUrl ?? "https://pushdraft.dev",
+    override ?? process.env.API_URL ?? config.apiUrl ?? DEFAULT_API_URL,
   );
   const credentials = await readJson(path.join(stateDirectory, "credentials.json"));
   const apiKey = process.env.API_KEY?.trim() || credentials.apiKey;

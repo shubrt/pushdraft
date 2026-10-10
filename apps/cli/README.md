@@ -1,6 +1,6 @@
 # pushdraft
 
-The CLI for [Pushdraft](https://pushdraft.dev), the open-source alternative to
+The CLI for [Pushdraft](https://draft.shubrt.me), the open-source alternative to
 [postplan.dev](https://postplan.dev). Publish versioned HTML drafts and protect
 them with authentication. Raster image drafts can be attached to HTML drafts by
 name. The server, API and CLI are all open source.
@@ -33,6 +33,11 @@ pushdraft list
 ```
 
 Run `pushdraft --help` for all options.
+
+The CLI talks to `https://draft.shubrt.me` by default. Settings and draft
+mappings saved for `https://pushdraft.dev` keep working and update the same
+drafts. Versions before 0.1.0 still use `pushdraft.dev` and fail there; upgrade
+with `npx pushdraft@latest`.
 
 ## Global installation
 
