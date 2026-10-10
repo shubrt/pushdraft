@@ -22,18 +22,18 @@ describe("public URL resolution", () => {
     const config = loadConfig({
       ...BASE_ENV,
       NODE_ENV: "production",
-      PUBLIC_URL: "https://pushdraft.dev",
+      PUBLIC_URL: "https://draft.shubrt.me",
       RAILWAY_ENVIRONMENT_NAME: "production",
       RAILWAY_PUBLIC_DOMAIN: "api-production.up.railway.app",
     });
-    expect(config.publicUrl.origin).toBe("https://pushdraft.dev");
+    expect(config.publicUrl.origin).toBe("https://draft.shubrt.me");
   });
 
   test("prefers the Railway-generated domain in PR environments", () => {
     const config = loadConfig({
       ...BASE_ENV,
       NODE_ENV: "production",
-      PUBLIC_URL: "https://pushdraft.dev",
+      PUBLIC_URL: "https://draft.shubrt.me",
       RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12",
       RAILWAY_PUBLIC_DOMAIN: "api-pushdraft-pr-12.up.railway.app",
     });
@@ -44,7 +44,7 @@ describe("public URL resolution", () => {
     const config = loadConfig({
       ...BASE_ENV,
       NODE_ENV: "production",
-      PUBLIC_URL: "https://pushdraft.dev",
+      PUBLIC_URL: "https://draft.shubrt.me",
       RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12",
       RAILWAY_PUBLIC_DOMAIN: "api-pushdraft-pr-12.up.railway.app",
       PREVIEW_PUBLIC_URL_TEMPLATE: "https://{env}.preview.pushdraft.dev",
@@ -56,12 +56,12 @@ describe("public URL resolution", () => {
     const config = loadConfig({
       ...BASE_ENV,
       NODE_ENV: "production",
-      PUBLIC_URL: "https://pushdraft.dev",
+      PUBLIC_URL: "https://draft.shubrt.me",
       RAILWAY_ENVIRONMENT_NAME: "production",
       RAILWAY_PUBLIC_DOMAIN: "api-production.up.railway.app",
       PREVIEW_PUBLIC_URL_TEMPLATE: "https://{env}.preview.pushdraft.dev",
     });
-    expect(config.publicUrl.origin).toBe("https://pushdraft.dev");
+    expect(config.publicUrl.origin).toBe("https://draft.shubrt.me");
   });
 
   test("ignores the preview URL template outside Railway", () => {
@@ -76,10 +76,10 @@ describe("public URL resolution", () => {
     const config = loadConfig({
       ...BASE_ENV,
       NODE_ENV: "production",
-      PUBLIC_URL: "https://pushdraft.dev",
+      PUBLIC_URL: "https://draft.shubrt.me",
       RAILWAY_ENVIRONMENT_NAME: "pushdraft-pr-12",
     });
-    expect(config.publicUrl.origin).toBe("https://pushdraft.dev");
+    expect(config.publicUrl.origin).toBe("https://draft.shubrt.me");
   });
 });
 

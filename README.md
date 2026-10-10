@@ -1,11 +1,20 @@
 # pushdraft
 
-[Pushdraft](https://pushdraft.dev) is the open-source alternative to
+[Pushdraft](https://draft.shubrt.me) is the open-source alternative to
 [postplan.dev](https://postplan.dev) for publishing versioned drafts. The
 entire server, API and CLI codebase is public, and drafts can be protected with
 authentication.
 
-Production runs at `https://pushdraft.dev`, with drafts on wildcard subdomains.
+Production runs at `https://draft.shubrt.me`, with drafts on wildcard
+subdomains (`*.draft.shubrt.me`). The `draft.shubrt.me` DNS records are DNS-only
+because Cloudflare Universal SSL does not cover the second-level wildcard
+`*.draft.shubrt.me`, so Railway issues the certificates, as it does for preview
+domains. The former domain `pushdraft.dev` stays proxied through Cloudflare, and
+two redirect rules send `pushdraft.dev/*` to `draft.shubrt.me/*` and
+`<draft-id>.pushdraft.dev/*` to `<draft-id>.draft.shubrt.me/*`, keeping path and
+query. Shoo issues a different pairwise subject per origin, so the first sign-in
+on a new origin joins the existing account through Shoo's cross-origin `pii_sub`,
+which requires the user's profile consent.
 Every push to `main` triggers a Railway deployment to production. The repository
 has no staging environment or automatic QA pipeline. The `preview-domains`
 GitHub Actions workflow provisions and removes preview domains. Pull requests get an ephemeral
