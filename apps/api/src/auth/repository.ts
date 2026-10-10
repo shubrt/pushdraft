@@ -160,6 +160,10 @@ export async function listApiKeys(
   }));
 }
 
+// Resolves the account for a sign-in. A new (provider, subject) identity joins the account of
+// an identity with the same pii_subject, then the adoptAccountId preview seed, then a new account.
+// Shoo's pairwise subject differs per origin while pii_sub is stable, so a domain move or a
+// second origin keeps the same account.
 export async function findOrCreateAccountForIdentity(
   database: Database,
   provider: string,
@@ -185,11 +189,25 @@ export async function findOrCreateAccountForIdentity(
       [provider, subject],
     );
 
+    const piiMatch =
+      existing.rowCount === 0 && profile.piiSubject !== null
+        ? await client.query<QueryResultRow & { account_id: string }>(
+            `
+              SELECT account_id
+              FROM identities
+              WHERE provider = $1 AND pii_subject = $2
+              ORDER BY last_login_at DESC
+              LIMIT 1
+            `,
+            [provider, profile.piiSubject],
+          )
+        : null;
+    const piiAccountId = piiMatch?.rows[0]?.account_id;
     const adopted =
-      existing.rowCount === 0 && adoptAccountId !== undefined
+      existing.rowCount === 0 && piiAccountId === undefined && adoptAccountId !== undefined
         ? await client.query("SELECT id FROM accounts WHERE id = $1", [adoptAccountId])
         : null;
-    const adoptedId = adopted?.rows[0]?.id as string | undefined;
+    const adoptedId = piiAccountId ?? (adopted?.rows[0]?.id as string | undefined);
     const accountId = existing.rows[0]?.account_id ?? adoptedId ?? `acct_${newInternalId()}`;
     const accountName = profile.displayName ?? profile.email ?? `pushdraft ${subject.slice(-6)}`;
     if (existing.rowCount === 0) {

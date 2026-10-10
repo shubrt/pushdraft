@@ -127,3 +127,82 @@ describe("preview account adoption at sign-in", () => {
     );
   });
 });
+
+describe("account adoption by pii subject at sign-in", () => {
+  const isPiiLookup = (call: QueryCall) => call.text.includes("pii_subject = $2");
+
+  test("attaches a new pairwise subject to the account of a matching pii identity", async () => {
+    const database = createTransactionDatabase((call) => {
+      if (isPiiLookup(call)) return { rows: [{ account_id: "acct_owner" }] };
+      if (call.text.includes("FROM identities")) return { rows: [] };
+      return {};
+    });
+
+    const identity = await findOrCreateAccountForIdentity(database, "shoo", "ps_new", PROFILE);
+
+    expect(identity.accountId).toBe("acct_owner");
+    expect(database.calls.find(isPiiLookup)?.values).toEqual(["shoo", "pii_stable"]);
+    const statements = database.calls.map((call) => compactSql(call.text));
+    expect(statements.some((text) => text.startsWith("INSERT INTO accounts"))).toBe(false);
+    const identityInsert = database.calls.find((call) =>
+      call.text.includes("INSERT INTO identities"),
+    );
+    expect(identityInsert?.values.slice(1, 4)).toEqual(["acct_owner", "shoo", "ps_new"]);
+  });
+
+  test("prefers a pii match over the preview seed", async () => {
+    const database = createTransactionDatabase((call) => {
+      if (isPiiLookup(call)) return { rows: [{ account_id: "acct_owner" }] };
+      if (call.text.includes("FROM identities")) return { rows: [] };
+      if (call.text.includes("SELECT id FROM accounts")) return { rows: [{ id: "acct_preview" }] };
+      return {};
+    });
+
+    const identity = await findOrCreateAccountForIdentity(
+      database,
+      "shoo",
+      "ps_new",
+      PROFILE,
+      "acct_preview",
+    );
+
+    expect(identity.accountId).toBe("acct_owner");
+    expect(database.calls.some((call) => call.text.includes("SELECT id FROM accounts"))).toBe(
+      false,
+    );
+  });
+
+  test("skips the pii lookup when the profile has no pii subject", async () => {
+    const database = createTransactionDatabase((call) => {
+      if (isPiiLookup(call)) return { rows: [{ account_id: "acct_owner" }] };
+      if (call.text.includes("FROM identities")) return { rows: [] };
+      if (call.text.includes("SELECT id FROM accounts")) return { rows: [{ id: "acct_preview" }] };
+      return {};
+    });
+
+    const identity = await findOrCreateAccountForIdentity(
+      database,
+      "shoo",
+      "ps_new",
+      { ...PROFILE, piiSubject: null },
+      "acct_preview",
+    );
+
+    expect(identity.accountId).toBe("acct_preview");
+    expect(database.calls.some(isPiiLookup)).toBe(false);
+  });
+
+  test("creates a fresh account when no identity shares the pii subject", async () => {
+    const database = createTransactionDatabase((call) => {
+      if (call.text.includes("FROM identities")) return { rows: [] };
+      return {};
+    });
+
+    const identity = await findOrCreateAccountForIdentity(database, "shoo", "ps_new", PROFILE);
+
+    expect(identity.accountId).toMatch(/^acct_/);
+    expect(database.calls.some(isPiiLookup)).toBe(true);
+    const statements = database.calls.map((call) => compactSql(call.text));
+    expect(statements.some((text) => text.startsWith("INSERT INTO accounts"))).toBe(true);
+  });
+});
