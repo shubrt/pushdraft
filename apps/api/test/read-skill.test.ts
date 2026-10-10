@@ -111,6 +111,46 @@ describe("read skill URL mapping", () => {
   });
 });
 
+describe("read skill former domain", () => {
+  const DRAFT = `https://${TEST_DRAFT_ID}.draft.shubrt.me`;
+
+  test.each([
+    undefined,
+    "https://pushdraft.dev",
+    "https://pushdraft.dev/",
+    "https://pushdraft.dev/?",
+    "https://pushdraft.dev/#",
+  ])("reads pushdraft.dev links from draft.shubrt.me with trusted origin %s", (apiUrl) => {
+    expect(resolveDraftUrl(`https://pushdraft.dev/${TEST_DRAFT_ID}?version=2`, apiUrl).rawUrl).toBe(
+      `${DRAFT}/v/2/raw`,
+    );
+    expect(resolveDraftUrl(`https://${TEST_DRAFT_ID}.pushdraft.dev/v/2`, apiUrl).rawUrl).toBe(
+      `${DRAFT}/v/2/raw`,
+    );
+    expect(resolveDraftUrl(DRAFT, apiUrl).rawUrl).toBe(`${DRAFT}/raw`);
+  });
+
+  test.each([
+    `https://nested.${TEST_DRAFT_ID}.pushdraft.dev/raw`,
+    `https://${TEST_DRAFT_ID}.pushdraft.dev.evil.example/raw`,
+    `https://pr-12.preview.pushdraft.dev/${TEST_DRAFT_ID}`,
+    `https://${TEST_DRAFT_ID}.pushdraft.dev:8443/raw`,
+    `https://user:secret@${TEST_DRAFT_ID}.pushdraft.dev/raw`,
+    `http://${TEST_DRAFT_ID}.pushdraft.dev/raw`,
+    `https://pushdraft.dev/s/${"a".repeat(43)}`,
+  ])("still rejects %s", (input) => {
+    expect(() => resolveDraftUrl(input)).toThrow();
+  });
+
+  test.each([APEX, "https://pr-12.preview.pushdraft.dev"])(
+    "does not rewrite links for trusted origin %s",
+    (apiUrl) => {
+      expect(() => resolveDraftUrl(`https://pushdraft.dev/${TEST_DRAFT_ID}`, apiUrl)).toThrow();
+      expect(() => resolveDraftUrl(`https://${TEST_DRAFT_ID}.pushdraft.dev/raw`, apiUrl)).toThrow();
+    },
+  );
+});
+
 describe("read skill responses", () => {
   test("reads version 2 from the real authenticated API", async () => {
     const html = "<!doctype html><title>Version two</title>\n<p>Exact draft bytes</p>";
