@@ -6,11 +6,13 @@ entire server, API and CLI codebase is public, and drafts can be protected with
 authentication.
 
 Production runs at `https://draft.shubrt.me`, with drafts on wildcard
-subdomains (`*.draft.shubrt.me`). The `draft.shubrt.me` DNS records are DNS-only
-because Cloudflare Universal SSL does not cover the second-level wildcard
-`*.draft.shubrt.me`, so Railway issues the certificates, as it does for preview
-domains. The former domain `pushdraft.dev` stays proxied through Cloudflare, and
-two redirect rules send `pushdraft.dev/*` to `draft.shubrt.me/*` and
+subdomains (`*.draft.shubrt.me`). The `draft.shubrt.me` record may be proxied,
+but the `*.draft` and `_acme-challenge.draft` records must be DNS-only because
+Cloudflare Universal SSL does not cover the second-level wildcard
+`*.draft.shubrt.me`, so Railway issues that certificate, as it does for preview
+domains. The former domain `pushdraft.dev` is no longer a Railway custom domain.
+Its records stay proxied through Cloudflare, and two redirect rules send
+`pushdraft.dev/*` to `draft.shubrt.me/*` and
 `<draft-id>.pushdraft.dev/*` to `<draft-id>.draft.shubrt.me/*`, keeping path and
 query. Shoo issues a different pairwise subject per origin, so the first sign-in
 on a new origin joins the existing account through Shoo's cross-origin `pii_sub`,

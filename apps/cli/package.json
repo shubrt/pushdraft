@@ -17,7 +17,7 @@
     "directory": "apps/cli"
   },
   "bin": {
-    "pushdraft": "./dist/cli.js"
+    "pushdraft": "dist/cli.js"
   },
   "files": [
     "dist/"
